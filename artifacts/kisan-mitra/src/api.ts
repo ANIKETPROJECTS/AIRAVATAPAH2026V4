@@ -1,4 +1,4 @@
-import { Farmer, Notification, Scheme, InsuranceSubsidy } from './types';
+import { Farmer, Notification, Scheme, InsuranceSubsidy, Application } from './types';
 
 function getApiBase(): string {
   if (typeof window === 'undefined') {
@@ -219,4 +219,26 @@ export const api = {
       throw new Error((err as Record<string, string>).error ?? 'Delete failed');
     }
   },
+
+  getMyApplications: (mobile: string) =>
+    request<Application[]>(`/applications?mobile=${encodeURIComponent(mobile)}`),
+
+  applyForScheme: (data: {
+    type: 'scheme' | 'subsidy' | 'insurance';
+    farmerId: string;
+    farmerName?: string | null;
+    mobile: string;
+    district?: string | null;
+    village?: string | null;
+    schemeId?: string;
+    schemeName: string;
+    schemeType?: string | null;
+    crop?: string | null;
+    land?: number | null;
+    lossDescription?: string | null;
+  }) =>
+    request<Application>('/applications', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, source: 'farmer' }),
+    }),
 };

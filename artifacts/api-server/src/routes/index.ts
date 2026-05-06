@@ -8,6 +8,7 @@ import authRouter from "./auth";
 import grievancesRouter from "./grievances";
 import notificationsRouter from "./notifications";
 import insuranceSubsidiesRouter from "./insurance-subsidies";
+import applicationsRouter from "./applications";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(schemesRouter);
 router.use(grievancesRouter);
 router.use(notificationsRouter);
 router.use(insuranceSubsidiesRouter);
+router.use(applicationsRouter);
 
 export default router;

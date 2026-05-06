@@ -58,6 +58,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `POST /api/grievances` — create grievance (body: `mobile`, `farmerId`, `farmerName`, `category`, `customCategory`, `subject`, `description`, `attachments[]`, `source`, `raisedBy`, `priority`)
   - `PATCH /api/grievances/:id` — update grievance (body: `status`, `adminReply`, `adminNotes`, `priority`, `assignedTo`, `resolvedAt`, `rejectionReason`)
   - `DELETE /api/grievances/:id` — delete grievance by grievanceId
+  - `GET /api/applications` — list applications (query: `type` scheme|subsidy|insurance, `status`, `farmerId`, `mobile`, `search`)
+  - `POST /api/applications` — submit application (body: `type`, `farmerId`, `farmerName`, `mobile`, `district`, `village`, `schemeId`, `schemeName`, `schemeType`, `crop`, `land`, `lossDescription`, `source`)
+  - `PATCH /api/applications/:id` — update application status (body: `status`, `adminReply`, `adminNotes`)
+  - `DELETE /api/applications/:id` — delete application by applicationId
 - **MongoDB**: Atlas cluster (`apnaapp` DB); collections: `farmers`, `users`, `schemes`, `push_tokens`, `otps`, `extract_requests`, `grievances`
 - **Embedded in farmer doc**: `notifications[]` (all notification objects) and `documents[]` (base64 doc images) — no separate collections for these
 - **Secrets**: `DATALAB_API_KEY`, `MONGODB_URI`, `SESSION_SECRET`

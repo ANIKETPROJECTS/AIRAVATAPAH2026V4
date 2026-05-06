@@ -120,6 +120,28 @@ export const REQUIRED_DOCUMENTS: DocumentDef[] = [
   },
 ];
 
+export interface Application {
+  applicationId: string;
+  type: 'scheme' | 'subsidy' | 'insurance';
+  farmerId: string;
+  farmerName: string | null;
+  mobile: string;
+  district: string | null;
+  village: string | null;
+  schemeId: string;
+  schemeName: string;
+  schemeType: string | null;
+  crop: string | null;
+  land: number | null;
+  lossDescription: string | null;
+  status: string;
+  adminReply: string | null;
+  adminNotes: string | null;
+  source: string;
+  appliedAt: string;
+  updatedAt: string;
+}
+
 export type DocUploadStatus =
   | 'idle'
   | 'picking'
