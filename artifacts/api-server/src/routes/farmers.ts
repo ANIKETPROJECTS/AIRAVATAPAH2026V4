@@ -213,7 +213,11 @@ router.delete("/farmers", async (_req, res, next) => {
   try {
     const db = getDb();
     const col = db.collection("farmers");
-    const result = await col.deleteMany({});
+    const docImagesCol = db.collection("document_images");
+    const [result] = await Promise.all([
+      col.deleteMany({}),
+      docImagesCol.deleteMany({}),
+    ]);
     res.json({ success: true, deleted: result.deletedCount });
   } catch (err) {
     next(err);
@@ -224,8 +228,11 @@ router.delete("/farmers/:id", async (req, res, next) => {
   try {
     const db = getDb();
     const col = db.collection("farmers");
-    const result = await col.deleteOne({ farmerId: req.params["id"] });
+    const docImagesCol = db.collection("document_images");
+    const farmerId = req.params["id"];
+    const result = await col.deleteOne({ farmerId });
     if (result.deletedCount === 0) { res.status(404).json({ error: "Farmer not found" }); return; }
+    await docImagesCol.deleteMany({ farmerId });
     res.json({ success: true });
   } catch (err) {
     next(err);
