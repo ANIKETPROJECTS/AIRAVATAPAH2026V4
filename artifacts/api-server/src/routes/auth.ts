@@ -90,9 +90,19 @@ router.post("/auth/verify-otp", async (req, res): Promise<void> => {
     await db.collection("otp_sessions").deleteOne({ mobile });
 
     const farmer = await db.collection("farmers").findOne(
-      { mobile },
-      { projection: { _id: 0, farmerId: 1, name: 1, mobile: 1, status: 1, district: 1 } }
+      { $or: [{ mobile }, { aadhaarMobile: mobile }] },
+      { projection: { _id: 0, farmerId: 1, name: 1, mobile: 1, aadhaarMobile: 1, status: 1, district: 1, docs: 1, source: 1 } }
     );
+
+    // If farmer was found via aadhaarMobile (not their stored mobile), update their
+    // mobile field so future lookups by phone work correctly.
+    if (farmer && farmer["mobile"] !== mobile) {
+      await db.collection("farmers").updateOne(
+        { farmerId: farmer["farmerId"] },
+        { $set: { mobile, updatedAt: new Date().toISOString() } }
+      );
+      farmer["mobile"] = mobile;
+    }
 
     const payload = { mobile, farmerId: farmer?.["farmerId"] ?? null, role: "farmer" };
     const token = signJwt(payload);

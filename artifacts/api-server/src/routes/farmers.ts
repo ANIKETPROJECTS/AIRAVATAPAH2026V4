@@ -37,7 +37,11 @@ router.get("/farmers/by-phone/:phone", async (req, res, next) => {
   try {
     const db = getDb();
     const col = db.collection("farmers");
-    const farmer = await col.findOne({ mobile: req.params["phone"] }, { projection: { _id: 0 } });
+    const phone = req.params["phone"];
+    const farmer = await col.findOne(
+      { $or: [{ mobile: phone }, { aadhaarMobile: phone }] },
+      { projection: { _id: 0 } }
+    );
     if (!farmer) { res.status(404).json({ error: "Farmer not found" }); return; }
     res.json(farmer);
   } catch (err) {

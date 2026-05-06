@@ -67,6 +67,10 @@ function buildFarmerFieldsFromSection(section: string, data: Record<string, unkn
     if (data["gender"]) u["gender"] = data["gender"];
     if (data["address"]) u["address"] = data["address"];
     if (data["state"]) u["state"] = data["state"];
+    if (data["mobileNumber"]) {
+      const cleaned = String(data["mobileNumber"]).replace(/\D/g, "").slice(-10);
+      if (cleaned.length === 10) u["aadhaarMobile"] = cleaned;
+    }
   } else if (section === "passbook") {
     if (data["bankName"]) u["bankName"] = data["bankName"];
     if (data["branchName"]) u["branchName"] = data["branchName"];
@@ -361,7 +365,6 @@ async function persistToProfile(
     const mobile = meta.profilePhone;
     const db = getDb();
     const farmersCol = db.collection("farmers");
-    const docImagesCol = db.collection("document_images");
 
     // Step 1: Ensure farmer record exists and get farmerId.
     const existing = await farmersCol.findOne({ mobile }, { projection: { _id: 0, farmerId: 1 } });
@@ -386,27 +389,32 @@ async function persistToProfile(
         ocr: {},
         extractionData: {},
         docs: [],
+        documents: [],
+        notifications: [],
       });
     } else {
       resolvedFarmerId = String(existing["farmerId"] ?? "");
     }
 
-    // Step 2: Always persist the raw image — even when field extraction yielded nothing.
+    // Step 2: Always persist the raw image embedded in the farmer document.
     if (meta.rawFileBase64) {
-      await docImagesCol.updateOne(
-        { mobile, docType: docDef.id },
-        {
-          $set: {
-            mobile,
-            farmerId: resolvedFarmerId,
-            docType: docDef.id,
-            base64: meta.rawFileBase64,
-            mimeType: meta.rawFileMimeType,
-            uploadedAt: now,
-          },
-        },
-        { upsert: true },
+      const docObj = {
+        docType: docDef.id,
+        base64: meta.rawFileBase64,
+        mimeType: meta.rawFileMimeType,
+        mobile,
+        uploadedAt: now,
+      };
+      const updateResult = await farmersCol.updateOne(
+        { mobile, "documents.docType": docDef.id },
+        { $set: { "documents.$": docObj } },
       );
+      if (updateResult.matchedCount === 0) {
+        await farmersCol.updateOne(
+          { mobile },
+          { $push: { documents: docObj } } as Record<string, unknown>,
+        );
+      }
     }
 
     // Step 3: Save extracted fields only when we have meaningful data.
