@@ -2894,6 +2894,8 @@ export default function NewRegistration() {
       khateNumber: profile.khateNumber || "—",
       surveyNumber: profile.surveyNumber || "—",
       bankAccount: profile.bankAccount || "—",
+      mobile: profile.mobile || "",
+      aadhaarMobile: profile.mobile ? profile.mobile.replace(/\D/g, "").slice(-10) : "",
       status: "Pending",
       source: "ocr",
       extractionData,

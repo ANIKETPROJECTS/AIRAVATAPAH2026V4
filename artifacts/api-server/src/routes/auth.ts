@@ -90,7 +90,7 @@ router.post("/auth/verify-otp", async (req, res): Promise<void> => {
     await db.collection("otp_sessions").deleteOne({ mobile });
 
     const farmer = await db.collection("farmers").findOne(
-      { $or: [{ mobile }, { aadhaarMobile: mobile }] },
+      { $or: [{ mobile }, { aadhaarMobile: mobile }, { "farmerProfile.mobile": mobile }] },
       { projection: { _id: 0, farmerId: 1, name: 1, mobile: 1, aadhaarMobile: 1, status: 1, district: 1, docs: 1, source: 1 } }
     );
 

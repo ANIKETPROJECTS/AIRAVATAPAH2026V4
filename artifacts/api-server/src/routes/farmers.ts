@@ -120,11 +120,14 @@ router.post("/farmers/submit-registration", async (req, res, next) => {
     const existing = await col.findOne({ mobile }, { projection: { _id: 0 } });
 
     if (existing) {
-      if (existing["status"] === "Pending" || existing["status"] === "Active" || existing["status"] === "Rejected") {
+      // Active and Rejected farmers should not be re-submitted.
+      if (existing["status"] === "Active" || existing["status"] === "Rejected") {
         res.json(existing);
         return;
       }
-      await col.updateOne({ mobile }, { $set: { status: "Pending", submittedAt: now, updatedAt: now } });
+      // For Pending (including admin-created farmers), always mark as mobile_ocr source
+      // so the mobile app routing correctly shows the Pending review screen.
+      await col.updateOne({ mobile }, { $set: { status: "Pending", source: "mobile_ocr", submittedAt: now, updatedAt: now } });
       const updated = await col.findOne({ mobile }, { projection: { _id: 0 } });
       res.json(updated);
     } else {

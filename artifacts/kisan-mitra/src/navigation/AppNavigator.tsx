@@ -191,8 +191,10 @@ export default function AppNavigator() {
             <Stack.Screen name="Grievance" component={GrievanceScreen} />
             <Stack.Screen name="GrievanceDetail" component={GrievanceDetailScreen} />
           </>
-        ) : farmerStatus === 'Pending' ? (
+        ) : farmerStatus === 'Pending' && state.farmer?.source === 'mobile_ocr' ? (
           <Stack.Screen name="Pending" component={PendingScreen} />
+        ) : farmerStatus === 'Pending' ? (
+          <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
         ) : (farmerStatus === 'Rejected' || farmerStatus === 'Cancelled') && state.reuploadRequested ? (
           <Stack.Screen name="DocumentUpload">
             {() => <DocumentUploadScreen onCancelReupload={clearReupload} isReupload />}
