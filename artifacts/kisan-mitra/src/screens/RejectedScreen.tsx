@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   ScrollView, Alert, Platform,
@@ -7,7 +7,14 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
 
 export default function RejectedScreen() {
-  const { state, logout, requestReupload } = useAuth();
+  const { state, logout, requestReupload, refreshFarmer } = useAuth();
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try { await refreshFarmer(); } catch {}
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refreshFarmer]);
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
   const farmer = state.farmer;
 
