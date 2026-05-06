@@ -9,17 +9,30 @@ router.get("/notifications", async (req, res): Promise<void> => {
     const db = getDb();
     const { mobile, farmerId, unreadOnly } = req.query as Record<string, string | undefined>;
 
+    if (!mobile && !farmerId) {
+      res.json([]);
+      return;
+    }
+
     const filter: Record<string, unknown> = {};
     if (mobile) filter["mobile"] = mobile;
-    if (farmerId) filter["farmerId"] = farmerId;
-    if (unreadOnly === "true") filter["read"] = false;
+    else if (farmerId) filter["farmerId"] = farmerId;
 
-    const notifications = await db
-      .collection("notifications")
-      .find(filter, { projection: { _id: 0 } })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .toArray();
+    const farmer = await db
+      .collection("farmers")
+      .findOne(filter, { projection: { _id: 0, notifications: 1 } });
+
+    let notifications: Record<string, unknown>[] = Array.isArray(farmer?.["notifications"])
+      ? (farmer["notifications"] as Record<string, unknown>[])
+      : [];
+
+    if (unreadOnly === "true") {
+      notifications = notifications.filter((n) => !n["read"]);
+    }
+
+    notifications = notifications
+      .sort((a, b) => new Date(b["createdAt"] as string).getTime() - new Date(a["createdAt"] as string).getTime())
+      .slice(0, 50);
 
     res.json(notifications);
   } catch (err) {
@@ -28,44 +41,59 @@ router.get("/notifications", async (req, res): Promise<void> => {
   }
 });
 
-router.patch("/notifications/:id/read", async (req, res): Promise<void> => {
-  try {
-    const db = getDb();
-    const result = await db.collection("notifications").findOneAndUpdate(
-      { notificationId: req.params["id"] },
-      { $set: { read: true, readAt: new Date().toISOString() } },
-      { returnDocument: "after", projection: { _id: 0 } }
-    );
-
-    if (!result) {
-      res.status(404).json({ error: "Notification not found" });
-      return;
-    }
-    res.json(result);
-  } catch (err) {
-    logger.error({ err }, "Failed to mark notification as read");
-    res.status(500).json({ error: "Failed to mark notification as read" });
-  }
-});
-
 router.patch("/notifications/read-all", async (req, res): Promise<void> => {
   try {
     const db = getDb();
     const { mobile, farmerId } = req.body as { mobile?: string; farmerId?: string };
+    const now = new Date().toISOString();
 
-    const filter: Record<string, unknown> = { read: false };
+    const filter: Record<string, unknown> = {};
     if (mobile) filter["mobile"] = mobile;
-    if (farmerId) filter["farmerId"] = farmerId;
+    else if (farmerId) filter["farmerId"] = farmerId;
+    else { res.json({ success: true, updated: 0 }); return; }
 
-    const result = await db.collection("notifications").updateMany(
+    const result = await db.collection("farmers").updateOne(
       filter,
-      { $set: { read: true, readAt: new Date().toISOString() } }
+      { $set: { "notifications.$[elem].read": true, "notifications.$[elem].readAt": now } },
+      { arrayFilters: [{ "elem.read": false }] }
     );
 
     res.json({ success: true, updated: result.modifiedCount });
   } catch (err) {
     logger.error({ err }, "Failed to mark all notifications as read");
     res.status(500).json({ error: "Failed to mark all notifications as read" });
+  }
+});
+
+router.patch("/notifications/:id/read", async (req, res): Promise<void> => {
+  try {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const notificationId = req.params["id"];
+
+    const result = await db.collection("farmers").updateOne(
+      { "notifications.notificationId": notificationId },
+      { $set: { "notifications.$.read": true, "notifications.$.readAt": now } }
+    );
+
+    if (result.matchedCount === 0) {
+      res.status(404).json({ error: "Notification not found" });
+      return;
+    }
+
+    const farmer = await db
+      .collection("farmers")
+      .findOne(
+        { "notifications.notificationId": notificationId },
+        { projection: { _id: 0, "notifications.$": 1 } }
+      );
+
+    const notification = Array.isArray(farmer?.["notifications"]) ? farmer["notifications"][0] : null;
+    if (!notification) { res.status(404).json({ error: "Notification not found" }); return; }
+    res.json(notification);
+  } catch (err) {
+    logger.error({ err }, "Failed to mark notification as read");
+    res.status(500).json({ error: "Failed to mark notification as read" });
   }
 });
 
@@ -100,7 +128,16 @@ router.post("/notifications/send", async (req, res): Promise<void> => {
       createdAt: new Date().toISOString(),
     };
 
-    await db.collection("notifications").insertOne(notification);
+    const filter: Record<string, unknown> = {};
+    if (mobile) filter["mobile"] = mobile;
+    else if (farmerId) filter["farmerId"] = farmerId;
+
+    if (mobile || farmerId) {
+      await db.collection("farmers").updateOne(
+        filter,
+        { $push: { notifications: notification } } as Record<string, unknown>
+      );
+    }
 
     if (mobile) {
       const tokenDoc = await db.collection("push_tokens").findOne({ mobile });
@@ -123,8 +160,7 @@ router.post("/notifications/send", async (req, res): Promise<void> => {
       }
     }
 
-    const { _id: _removed, ...clean } = notification as typeof notification & { _id?: unknown };
-    res.status(201).json(clean);
+    res.status(201).json(notification);
   } catch (err) {
     logger.error({ err }, "Failed to send notification");
     res.status(500).json({ error: "Failed to send notification" });

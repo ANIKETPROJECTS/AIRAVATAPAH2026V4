@@ -79,6 +79,8 @@ router.post("/farmers", async (req, res, next) => {
     const farmer = {
       farmerId,
       ...req.body,
+      notifications: [],
+      documents: [],
       addedAt: new Date().toISOString(),
     };
     await col.insertOne(farmer);
@@ -140,6 +142,8 @@ router.post("/farmers/submit-registration", async (req, res, next) => {
         submittedAt: now,
         updatedAt: now,
         docs: [],
+        notifications: [],
+        documents: [],
       };
       await col.insertOne(farmer);
       const { _id: _r, ...clean } = farmer as typeof farmer & { _id?: unknown };
@@ -153,13 +157,13 @@ router.post("/farmers/submit-registration", async (req, res, next) => {
 router.get("/farmers/:farmerId/documents", async (req, res, next) => {
   try {
     const db = getDb();
-    const col = db.collection("document_images");
-    const docs = await col
-      .find(
+    const farmer = await db
+      .collection("farmers")
+      .findOne(
         { farmerId: req.params["farmerId"] },
-        { projection: { _id: 0, docType: 1, mimeType: 1, base64: 1, uploadedAt: 1 } },
-      )
-      .toArray();
+        { projection: { _id: 0, documents: 1 } }
+      );
+    const docs = Array.isArray(farmer?.["documents"]) ? farmer["documents"] : [];
     res.json({ documents: docs });
   } catch (err) {
     next(err);
@@ -170,7 +174,6 @@ router.post("/farmers/:farmerId/documents", async (req, res, next) => {
   try {
     const db = getDb();
     const farmersCol = db.collection("farmers");
-    const docImagesCol = db.collection("document_images");
     const farmerId = req.params["farmerId"];
 
     const farmer = await farmersCol.findOne({ farmerId }, { projection: { _id: 0, mobile: 1 } });
@@ -180,28 +183,28 @@ router.post("/farmers/:farmerId/documents", async (req, res, next) => {
     const docs = Array.isArray(req.body?.documents) ? req.body.documents : [];
     const now = new Date().toISOString();
 
-    await Promise.all(
-      docs
-        .filter((d: { docType?: string; base64?: string; mimeType?: string }) =>
-          typeof d.docType === "string" && typeof d.base64 === "string" && d.base64.length > 0
-        )
-        .map((d: { docType: string; base64: string; mimeType: string }) =>
-          docImagesCol.updateOne(
-            { farmerId, docType: d.docType },
-            {
-              $set: {
-                farmerId,
-                mobile,
-                docType: d.docType,
-                base64: d.base64,
-                mimeType: d.mimeType || "application/octet-stream",
-                uploadedAt: now,
-              },
-            },
-            { upsert: true },
-          )
-        )
-    );
+    for (const d of docs.filter(
+      (d: { docType?: string; base64?: string; mimeType?: string }) =>
+        typeof d.docType === "string" && typeof d.base64 === "string" && d.base64.length > 0
+    )) {
+      const docObj = {
+        docType: d.docType,
+        base64: d.base64,
+        mimeType: d.mimeType || "application/octet-stream",
+        mobile,
+        uploadedAt: now,
+      };
+      const updateResult = await farmersCol.updateOne(
+        { farmerId, "documents.docType": d.docType },
+        { $set: { "documents.$": docObj } }
+      );
+      if (updateResult.matchedCount === 0) {
+        await farmersCol.updateOne(
+          { farmerId },
+          { $push: { documents: docObj } } as Record<string, unknown>
+        );
+      }
+    }
 
     res.json({ saved: docs.length });
   } catch (err) {
@@ -212,12 +215,7 @@ router.post("/farmers/:farmerId/documents", async (req, res, next) => {
 router.delete("/farmers", async (_req, res, next) => {
   try {
     const db = getDb();
-    const col = db.collection("farmers");
-    const docImagesCol = db.collection("document_images");
-    const [result] = await Promise.all([
-      col.deleteMany({}),
-      docImagesCol.deleteMany({}),
-    ]);
+    const result = await db.collection("farmers").deleteMany({});
     res.json({ success: true, deleted: result.deletedCount });
   } catch (err) {
     next(err);
@@ -227,12 +225,8 @@ router.delete("/farmers", async (_req, res, next) => {
 router.delete("/farmers/:id", async (req, res, next) => {
   try {
     const db = getDb();
-    const col = db.collection("farmers");
-    const docImagesCol = db.collection("document_images");
-    const farmerId = req.params["id"];
-    const result = await col.deleteOne({ farmerId });
+    const result = await db.collection("farmers").deleteOne({ farmerId: req.params["id"] });
     if (result.deletedCount === 0) { res.status(404).json({ error: "Farmer not found" }); return; }
-    await docImagesCol.deleteMany({ farmerId });
     res.json({ success: true });
   } catch (err) {
     next(err);

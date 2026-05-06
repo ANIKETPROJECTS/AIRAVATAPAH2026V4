@@ -58,7 +58,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `POST /api/grievances` — create grievance (body: `mobile`, `farmerId`, `farmerName`, `category`, `customCategory`, `subject`, `description`, `attachments[]`, `source`, `raisedBy`, `priority`)
   - `PATCH /api/grievances/:id` — update grievance (body: `status`, `adminReply`, `adminNotes`, `priority`, `assignedTo`, `resolvedAt`, `rejectionReason`)
   - `DELETE /api/grievances/:id` — delete grievance by grievanceId
-- **MongoDB**: Atlas cluster (`apnaapp` DB); collections: `farmers`, `users`, `schemes`, `notifications`, `push_tokens`, `otps`, `extract_requests`, `grievances`
+- **MongoDB**: Atlas cluster (`apnaapp` DB); collections: `farmers`, `users`, `schemes`, `push_tokens`, `otps`, `extract_requests`, `grievances`
+- **Embedded in farmer doc**: `notifications[]` (all notification objects) and `documents[]` (base64 doc images) — no separate collections for these
 - **Secrets**: `DATALAB_API_KEY`, `MONGODB_URI`, `SESSION_SECRET`
 
 ### Kisan Mitra — Farmer Mobile App (`artifacts/kisan-mitra`)
@@ -104,7 +105,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Admin app (agri-admin) and Farmer app (kisan-mitra) both call the same API server on port 8000
 - Admin app uses Vite proxy (`/api` → `http://localhost:8000`) — same-origin requests
 - Kisan Mitra derives API URL dynamically from `window.location.hostname:8000` at runtime
-- MongoDB collections shared between all apps: `farmers`, `schemes`, `notifications`, `push_tokens`
+- MongoDB collections shared between all apps: `farmers` (with embedded `notifications[]` and `documents[]`), `schemes`, `push_tokens`
 - Expo Push Notifications: farmers register push tokens; admin triggers push via `/api/notifications/send`
 - OTP is returned in API response in dev mode (no SMS gateway) — displayed as yellow banner in OtpScreen
 - Document types: `aadhar`, `bank_passbook`, `form7`, `form12`, `form8a`
