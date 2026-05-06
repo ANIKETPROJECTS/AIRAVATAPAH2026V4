@@ -1,20 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  ScrollView, Alert, Platform,
+  ScrollView, Alert, Platform, ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
 
 export default function RejectedScreen() {
   const { state, logout, requestReupload, refreshFarmer } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    refreshFarmer().catch(() => {});
     const interval = setInterval(async () => {
       try { await refreshFarmer(); } catch {}
     }, 30000);
     return () => clearInterval(interval);
   }, [refreshFarmer]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try { await refreshFarmer(); }
+    catch { Alert.alert('Error', 'Could not fetch updated status. Please try again.'); }
+    finally { setRefreshing(false); }
+  }
+
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
   const farmer = state.farmer;
 
@@ -42,6 +52,11 @@ export default function RejectedScreen() {
           <Text style={styles.topBarTitle}>कृषी सुविधा</Text>
           <Text style={styles.topBarSub}>Application Status</Text>
         </View>
+        <TouchableOpacity style={styles.refreshTopBtn} onPress={handleRefresh} disabled={refreshing}>
+          {refreshing
+            ? <ActivityIndicator size="small" color={COLORS.gold} />
+            : <Text style={styles.refreshTopText}>↻ Refresh</Text>}
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -179,9 +194,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   topBar: {
     backgroundColor: COLORS.primaryDark, paddingHorizontal: 20, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   topBarTitle: { fontSize: FONT_SIZE.base, fontWeight: '800', color: COLORS.gold },
   topBarSub: { fontSize: FONT_SIZE.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  refreshTopBtn: {
+    backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: RADIUS.full,
+    paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    minWidth: 36, alignItems: 'center',
+  },
+  refreshTopText: { color: COLORS.gold, fontSize: FONT_SIZE.sm, fontWeight: '700' },
   scroll: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 20 },
   statusHero: { alignItems: 'center', marginBottom: 20 },
   statusIconRing: {
