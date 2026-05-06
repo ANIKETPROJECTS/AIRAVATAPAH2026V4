@@ -8,6 +8,7 @@ export const T: Record<string, Record<LangCode, string>> = {
   nav_subsidies:        { en: "Subsidy Applications",       hi: "सब्सिडी आवेदन",          mr: "अनुदान अर्ज" },
   nav_insurance:        { en: "Insurance Claim Applications", hi: "बीमा दावा आवेदन",     mr: "विमा दावा अर्ज" },
   nav_grievances:       { en: "Grievance Management",       hi: "शिकायत प्रबंधन",        mr: "तक्रार व्यवस्थापन" },
+  nav_notifications:    { en: "Notification Manager",       hi: "अधिसूचना प्रबंधक",      mr: "अधिसूचना व्यवस्थापक" },
   nav_reports:          { en: "Reports & Analytics",        hi: "रिपोर्ट और विश्लेषण",   mr: "अहवाल आणि विश्लेषण" },
   nav_settings:         { en: "Settings & Workflow",        hi: "सेटिंग्स और वर्कफ्लो",  mr: "सेटिंग्स आणि कार्यप्रवाह" },
   nav_farmerapp:        { en: "Farmer App Preview",         hi: "किसान ऐप पूर्वावलोकन", mr: "शेतकरी ॲप पूर्वावलोकन" },

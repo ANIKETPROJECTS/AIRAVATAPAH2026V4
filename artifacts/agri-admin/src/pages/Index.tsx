@@ -15,6 +15,7 @@ import NewRegistration from "@/components/modules/NewRegistration";
 import UserManagement from "@/components/modules/UserManagement";
 import AllSchemes from "@/components/modules/AllSchemes";
 import AllInsuranceSubsidies from "@/components/modules/AllInsuranceSubsidies";
+import NotificationManagement from "@/components/modules/NotificationManagement";
 import AIAssistant from "@/components/AIAssistant";
 import { useLang } from "@/contexts/LanguageContext";
 import { useAuth, type SectionKey } from "@/contexts/AuthContext";
@@ -33,6 +34,7 @@ const pageTitleKeys: Record<string, string> = {
   subsidies:        "page_subsidies",
   insurance:        "page_insurance",
   grievances:       "page_grievances",
+  notifications:    "Notification Management",
   reports:          "page_reports",
   settings:         "page_settings",
   farmerapp:        "page_farmerapp",
@@ -103,6 +105,7 @@ export default function Index() {
     if (active === "subsidies")       return <SubsidyManagement/>;
     if (active === "insurance")       return <InsuranceClaims/>;
     if (active === "grievances")      return <GrievanceManagement/>;
+    if (active === "notifications")   return <NotificationManagement onNavigate={navigate}/>;
     if (active === "reports")         return <ReportsAnalytics/>;
     if (active === "settings")        return <SettingsWorkflow/>;
     if (active === "farmerapp")       return <FarmerAppPreview/>;

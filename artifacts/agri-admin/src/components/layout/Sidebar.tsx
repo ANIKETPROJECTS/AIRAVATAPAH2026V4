@@ -3,7 +3,7 @@ import {
   BarChart3, Users, ClipboardList, IndianRupee, Shield, Megaphone,
   TrendingUp, Settings, ChevronLeft, ChevronRight, Smartphone,
   UserPlus, UserCheck, UsersRound, BookOpen, ShieldCheck, Coins,
-  FolderOpen, Database as DatabaseIcon,
+  FolderOpen, Database as DatabaseIcon, BellRing,
 } from "lucide-react";
 import { useLang } from "@/contexts/LanguageContext";
 import { useAuth, type SectionKey } from "@/contexts/AuthContext";
@@ -50,8 +50,9 @@ const NAV_ENTRIES: NavEntry[] = [
       { key: "allsubsidies", labelKey: "nav_allsubsidies", icon: Coins },
     ],
   },
-  { key: "grievances", labelKey: "nav_grievances", icon: Megaphone },
-  { key: "reports",    labelKey: "nav_reports",    icon: TrendingUp },
+  { key: "grievances",     labelKey: "nav_grievances",     icon: Megaphone },
+  { key: "notifications",  labelKey: "nav_notifications",  icon: BellRing },
+  { key: "reports",        labelKey: "nav_reports",        icon: TrendingUp },
   { key: "settings",   labelKey: "nav_settings",   icon: Settings },
   { key: "farmerapp",  labelKey: "nav_farmerapp",  icon: Smartphone },
 ];

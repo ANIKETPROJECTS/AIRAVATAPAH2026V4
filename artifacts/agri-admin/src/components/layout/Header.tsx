@@ -30,10 +30,31 @@ function NotifIcon({ type }: { type: NotificationType }) {
   return <div className={`${base} bg-slate-100`}><Info className="h-4 w-4 text-slate-500"/></div>;
 }
 
+/* ── Type → page mapping ── */
+const TYPE_TO_PAGE: Record<NotificationType, string> = {
+  farmer:    "farmers",
+  grievance: "grievances",
+  scheme:    "applications",
+  ticket:    "applications",
+  system:    "dashboard",
+};
+
 /* ── Notif row ── */
-function NotifRow({ n, onRead }: { n: AppNotification; onRead: () => void }) {
+function NotifRow({ n, onRead, onNavigate, onClose }: {
+  n: AppNotification;
+  onRead: () => void;
+  onNavigate?: (key: string) => void;
+  onClose: () => void;
+}) {
+  function handleClick() {
+    onRead();
+    if (onNavigate) {
+      onNavigate(TYPE_TO_PAGE[n.type] ?? "dashboard");
+      onClose();
+    }
+  }
   return (
-    <button onClick={onRead}
+    <button onClick={handleClick}
       className={`w-full text-left flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors border-b border-border/50 last:border-0 ${!n.read ? "bg-emerald-50/40" : ""}`}>
       <NotifIcon type={n.type}/>
       <div className="flex-1 min-w-0">
@@ -50,7 +71,7 @@ function NotifRow({ n, onRead }: { n: AppNotification; onRead: () => void }) {
 }
 
 /* ── Notification panel ── */
-function NotifPanel({ onClose }: { onClose: () => void }) {
+function NotifPanel({ onClose, onNavigate }: { onClose: () => void; onNavigate?: (key: string) => void }) {
   const { notifications, unreadCount, markRead, markAllRead, clearAll } = useNotifications();
   return (
     <div className="absolute right-0 top-full mt-2 w-[360px] bg-white border border-border rounded-2xl shadow-2xl shadow-black/10 z-50 overflow-hidden">
@@ -74,7 +95,7 @@ function NotifPanel({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 transition-colors ml-1"><X className="h-3.5 w-3.5 text-muted-foreground"/></button>
         </div>
       </div>
-      <div className="max-h-[420px] overflow-y-auto">
+      <div className="max-h-[380px] overflow-y-auto">
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-6">
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center"><BellOff className="h-6 w-6 text-slate-400"/></div>
@@ -83,11 +104,19 @@ function NotifPanel({ onClose }: { onClose: () => void }) {
               <p className="text-xs text-muted-foreground">No notifications yet. Actions like scheme applications, grievances, and ticket submissions will appear here.</p>
             </div>
           </div>
-        ) : notifications.map(n => <NotifRow key={n.id} n={n} onRead={() => markRead(n.id)}/>)}
+        ) : notifications.map(n => (
+          <NotifRow key={n.id} n={n} onRead={() => markRead(n.id)} onNavigate={onNavigate} onClose={onClose}/>
+        ))}
       </div>
       {notifications.length > 0 && (
-        <div className="px-4 py-2.5 border-t border-border bg-slate-50 text-center">
+        <div className="px-4 py-2.5 border-t border-border bg-slate-50 flex items-center justify-between">
           <span className="text-[11px] text-muted-foreground">{notifications.length} total · {unreadCount} unread</span>
+          <button
+            onClick={() => { onNavigate?.("notifications"); onClose(); }}
+            className="text-[11px] text-secondary hover:text-secondary/80 font-semibold hover:underline"
+          >
+            Manage all →
+          </button>
         </div>
       )}
     </div>
@@ -264,7 +293,7 @@ export default function Header({ onAIOpen, onNavigate }: { onAIOpen: () => void;
               </span>
             )}
           </button>
-          {notifOpen && <NotifPanel onClose={() => setNotifOpen(false)}/>}
+          {notifOpen && <NotifPanel onClose={() => setNotifOpen(false)} onNavigate={onNavigate}/>}
         </div>
 
         {/* Profile button */}
