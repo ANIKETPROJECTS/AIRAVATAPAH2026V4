@@ -363,28 +363,11 @@ export default function SchemesScreen() {
     });
   }
 
-  function getEligibilityCategory(item: Scheme | InsuranceSubsidy, itemTab: Tab): EligibilityFilter {
-    const isVerified = farmer?.status === 'Active' || farmer?.status === 'Verified';
-    const uploadedSections = new Set((farmer?.docs ?? []).map(d => d.section));
-    const hasBankAccount = !!(farmer?.bankAccount && farmer.bankAccount !== '—');
-
-    const requiredDocIds = getRequiredDocIds(item, itemTab);
-    const allDocsUploaded = requiredDocIds.every(id => uploadedSections.has(id));
-
-    const cropLandEligible = itemTab === 'schemes'
-      ? isEligibleScheme(item as Scheme, crop, land)
-      : isEligibleItem(item as InsuranceSubsidy, crop, land);
-
-    // Core non-doc criteria
-    const coreOk = isVerified && cropLandEligible && hasBankAccount;
-
-    // ELIGIBLE: all checks pass including docs
-    if (coreOk && allDocsUploaded) return 'ELIGIBLE';
-
-    // PARTIAL: core criteria are fine but documents are missing
-    if (coreOk && !allDocsUploaded) return 'PARTIAL';
-
-    // NOT_ELIGIBLE: core criteria fail (crop/land mismatch, not verified, or no bank account)
+  function getEligibilityCategory(_item: Scheme | InsuranceSubsidy, _itemTab: Tab): EligibilityFilter {
+    const uploadedCount = (farmer?.docs ?? []).length;
+    const totalDocs = 5;
+    if (uploadedCount >= totalDocs) return 'ELIGIBLE';
+    if (uploadedCount > 0) return 'PARTIAL';
     return 'NOT_ELIGIBLE';
   }
 
