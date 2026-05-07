@@ -75,9 +75,9 @@ function MainTabs({ initialTab }: { initialTab: 'Home' | 'Profile' }) {
   }, [clearJustLoggedIn]);
 
   const tabLabels: Record<string, Record<string, string>> = {
-    en: { Home: 'Home', Schemes: 'Schemes', Notifications: 'Alerts', Analytics: 'Analytics', Profile: 'Profile' },
-    hi: { Home: 'होम', Schemes: 'योजनाएं', Notifications: 'सूचनाएं', Analytics: 'विश्लेषण', Profile: 'प्रोफ़ाइल' },
-    mr: { Home: 'होम', Schemes: 'योजना', Notifications: 'सूचना', Analytics: 'विश्लेषण', Profile: 'प्रोफाइल' },
+    en: { Home: 'Home', Schemes: 'Applications', Notifications: 'Alerts', Analytics: 'Analytics', Profile: 'Profile' },
+    hi: { Home: 'होम', Schemes: 'आवेदन', Notifications: 'सूचनाएं', Analytics: 'विश्लेषण', Profile: 'प्रोफ़ाइल' },
+    mr: { Home: 'होम', Schemes: 'अर्ज', Notifications: 'सूचना', Analytics: 'विश्लेषण', Profile: 'प्रोफाइल' },
   };
   const labels = tabLabels[lang] ?? tabLabels['en'];
 
