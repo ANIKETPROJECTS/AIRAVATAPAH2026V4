@@ -112,13 +112,15 @@ export default function SchemeDetailScreen() {
   useEffect(() => {
     const mobile = farmer?.mobile ?? state.mobile;
     if (!mobile) return;
+    const type: 'scheme' | 'subsidy' | 'insurance' =
+      tabType === 'schemes' ? 'scheme' : tabType === 'insurance' ? 'insurance' : 'subsidy';
     api.getMyApplications(mobile).then((apps) => {
       const fresh = apps.find(
-        (a) => a.type === appType && (a.schemeId === item.id || a.schemeName === item.name),
+        (a) => a.type === type && (a.schemeId === item.id || a.schemeName === item.name),
       );
       if (fresh) setSubmittedApp(fresh);
     }).catch(() => { /* keep existing */ });
-  }, [farmer?.mobile, state.mobile, item.id, item.name, appType]);
+  }, [farmer?.mobile, state.mobile, item.id, item.name, tabType]);
 
   const lang = state.lang;
   const t = (en: string, hi: string, mr: string) => lang === 'hi' ? hi : lang === 'mr' ? mr : en;
