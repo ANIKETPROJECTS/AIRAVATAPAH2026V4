@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { ChevronLeft, ChevronRight, Search, RefreshCw, CheckCircle, XCircle, Clock, FileText, ArrowLeft, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, RefreshCw, CheckCircle, XCircle, Clock, FileText, ArrowLeft, AlertTriangle, Trash2, Pencil } from "lucide-react";
 import { useNotifications } from "@/contexts/NotificationContext";
 
 const DOC_LABEL: Record<string, string> = {
@@ -58,8 +58,12 @@ export default function SchemeApplications() {
   const [notes, setNotes]       = useState("");
   const [saving, setSaving]     = useState(false);
   const [toast, setToast]       = useState("");
-  const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
+  const [rejectModal, setRejectModal]   = useState<{ id: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [deleteModal, setDeleteModal]   = useState<{ id: string; name: string } | null>(null);
+  const [editModal, setEditModal]       = useState<Application | null>(null);
+  const [editReply, setEditReply]       = useState("");
+  const [editNotes, setEditNotes]       = useState("");
   const prevCount               = useRef(0);
   const { addNotification }     = useNotifications();
   const PAGE_SIZE = 10;
@@ -136,6 +140,36 @@ export default function SchemeApplications() {
     if (!rejectModal) return;
     updateStatus(rejectModal.id, "Rejected", rejectReason.trim() || notes);
     setRejectModal(null);
+  }
+
+  async function deleteApp(id: string) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/applications/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed");
+      setApps(prev => prev.filter(a => a.applicationId !== id));
+      if (review?.applicationId === id) setReview(null);
+      showToast(`🗑️ Application ${id} deleted`);
+    } catch { showToast("⚠️ Delete failed"); }
+    finally { setSaving(false); setDeleteModal(null); }
+  }
+
+  async function saveEdit() {
+    if (!editModal) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/applications/${editModal.applicationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminReply: editReply, adminNotes: editNotes }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const updated: Application = await res.json();
+      setApps(prev => prev.map(a => a.applicationId === updated.applicationId ? updated : a));
+      setReview(prev => prev?.applicationId === updated.applicationId ? updated : prev);
+      showToast("✏️ Application updated");
+    } catch { showToast("⚠️ Update failed"); }
+    finally { setSaving(false); setEditModal(null); }
   }
 
   if (review) {
@@ -287,6 +321,67 @@ export default function SchemeApplications() {
     <div className="space-y-4">
       {toast && <div className="fixed top-4 right-4 z-50 bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg text-sm">{toast}</div>}
 
+      {/* Delete confirmation modal */}
+      {deleteModal && (
+        <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-red-600"/>
+              </div>
+              <div>
+                <h3 className="font-semibold text-base">Delete Application</h3>
+                <p className="text-xs text-muted-foreground font-mono">{deleteModal.id}</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">Are you sure you want to permanently delete the application for <span className="font-semibold text-foreground">"{deleteModal.name}"</span>? This cannot be undone.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setDeleteModal(null)} className="px-4 py-2 text-sm rounded-lg bg-muted hover:bg-muted/80">Cancel</button>
+              <button disabled={saving} onClick={() => deleteApp(deleteModal.id)} className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                {saving ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editModal && (
+        <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <Pencil className="h-5 w-5 text-blue-600"/>
+              </div>
+              <div>
+                <h3 className="font-semibold text-base">Edit Application</h3>
+                <p className="text-xs text-muted-foreground font-mono">{editModal.applicationId}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-semibold mb-1 block">Reply to Farmer</label>
+                <textarea value={editReply} onChange={e => setEditReply(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-xl h-20 resize-none focus:outline-none focus:ring-2 focus:ring-secondary/30"
+                  placeholder="Message visible to the farmer…"/>
+              </div>
+              <div>
+                <label className="text-sm font-semibold mb-1 block">Internal Notes</label>
+                <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-xl h-20 resize-none focus:outline-none focus:ring-2 focus:ring-secondary/30"
+                  placeholder="Internal officer notes (not visible to farmer)…"/>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setEditModal(null)} className="px-4 py-2 text-sm rounded-lg bg-muted hover:bg-muted/80">Cancel</button>
+              <button disabled={saving} onClick={saveEdit} className="px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
@@ -363,10 +458,20 @@ export default function SchemeApplications() {
                     <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(a.appliedAt)}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={a.status}/></td>
                     <td className="px-4 py-2.5">
-                      <button onClick={() => { setReview(a); setNotes(a.adminNotes ?? ""); }}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 font-semibold">
-                        Review
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => { setReview(a); setNotes(a.adminNotes ?? ""); }}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 font-semibold">
+                          Review
+                        </button>
+                        <button onClick={() => { setEditModal(a); setEditReply(a.adminReply ?? ""); setEditNotes(a.adminNotes ?? ""); }}
+                          className="p-1.5 rounded-lg border border-border hover:bg-muted transition-colors" title="Edit reply & notes">
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground"/>
+                        </button>
+                        <button onClick={() => setDeleteModal({ id: a.applicationId, name: a.schemeName })}
+                          className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 transition-colors" title="Delete">
+                          <Trash2 className="h-3.5 w-3.5 text-red-500"/>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}</tbody>

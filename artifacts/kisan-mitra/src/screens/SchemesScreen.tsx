@@ -140,7 +140,7 @@ export default function SchemesScreen() {
   const [eligFilter, setEligFilter] = useState<EligibilityFilter>('ALL');
   const [search, setSearch] = useState('');
   const [successModal, setSuccessModal] = useState<{ schemeName: string; applicationId: string } | null>(null);
-  const [statusModal, setStatusModal] = useState<Application | null>(null);
+  const [statusModal, setStatusModal] = useState<{ app: Application; reapplyFn?: () => void } | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -601,25 +601,19 @@ export default function SchemesScreen() {
                     </TouchableOpacity>
                   )}
 
-                  {item.status !== 'Closed' && existingApp && existingApp.status !== 'Rejected' && (
+                  {item.status !== 'Closed' && existingApp && (
                     <TouchableOpacity
                       style={[styles.appliedBtn, { backgroundColor: `${APP_STATUS_COLOR[existingApp.status] ?? '#6B7280'}20`, borderWidth: 1.5, borderColor: `${APP_STATUS_COLOR[existingApp.status] ?? '#6B7280'}60` }]}
-                      onPress={() => setStatusModal(existingApp)}
+                      onPress={() => setStatusModal({
+                        app: existingApp,
+                        reapplyFn: existingApp.status === 'Rejected'
+                          ? () => handleApply(appType, item as Scheme | InsuranceSubsidy, itemType, eligible, undefined, tab)
+                          : undefined,
+                      })}
                       activeOpacity={0.7}
                     >
                       <Text style={[styles.appliedBtnText, { color: APP_STATUS_COLOR[existingApp.status] ?? '#6B7280' }]}>
                         {APP_STATUS_ICON[existingApp.status] ?? '📋'} Status
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {existingApp && existingApp.status === 'Rejected' && item.status !== 'Closed' && (
-                    <TouchableOpacity
-                      style={[styles.applyBtn, styles.applyBtnEligible]}
-                      onPress={() => handleApply(appType, item as Scheme | InsuranceSubsidy, itemType, eligible, undefined, tab)}
-                    >
-                      <Text style={styles.applyText}>
-                        {state.lang === 'hi' ? 'पुनः आवेदन करें' : state.lang === 'mr' ? 'पुन्हा अर्ज करा' : 'Re-apply'}
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -674,7 +668,7 @@ export default function SchemesScreen() {
                 <Text style={styles.modalTitle}>
                   {state.lang === 'hi' ? 'आवेदन स्थिति' : state.lang === 'mr' ? 'अर्जाची स्थिती' : 'Application Status'}
                 </Text>
-                <Text style={styles.modalSubtitle} numberOfLines={1}>{statusModal.schemeName}</Text>
+                <Text style={styles.modalSubtitle} numberOfLines={1}>{statusModal.app.schemeName}</Text>
               </View>
               <TouchableOpacity onPress={() => setStatusModal(null)} style={styles.modalClose}>
                 <Text style={styles.modalCloseText}>✕</Text>
@@ -682,15 +676,15 @@ export default function SchemesScreen() {
             </View>
 
             <View style={styles.statusContent}>
-              <View style={[styles.statusBigBadge, { backgroundColor: `${APP_STATUS_COLOR[statusModal.status] ?? '#6B7280'}18`, borderColor: APP_STATUS_COLOR[statusModal.status] ?? '#6B7280' }]}>
-                <Text style={styles.statusBigIcon}>{APP_STATUS_ICON[statusModal.status] ?? '📋'}</Text>
-                <Text style={[styles.statusBigLabel, { color: APP_STATUS_COLOR[statusModal.status] ?? '#6B7280' }]}>
-                  {APP_STATUS_LABEL[statusModal.status] ?? statusModal.status}
+              <View style={[styles.statusBigBadge, { backgroundColor: `${APP_STATUS_COLOR[statusModal.app.status] ?? '#6B7280'}18`, borderColor: APP_STATUS_COLOR[statusModal.app.status] ?? '#6B7280' }]}>
+                <Text style={styles.statusBigIcon}>{APP_STATUS_ICON[statusModal.app.status] ?? '📋'}</Text>
+                <Text style={[styles.statusBigLabel, { color: APP_STATUS_COLOR[statusModal.app.status] ?? '#6B7280' }]}>
+                  {APP_STATUS_LABEL[statusModal.app.status] ?? statusModal.app.status}
                 </Text>
               </View>
 
               <Text style={styles.statusDescription}>
-                {APP_STATUS_DESC[statusModal.status]?.[state.lang as 'en' | 'hi' | 'mr'] ?? APP_STATUS_DESC[statusModal.status]?.en ?? ''}
+                {APP_STATUS_DESC[statusModal.app.status]?.[state.lang as 'en' | 'hi' | 'mr'] ?? APP_STATUS_DESC[statusModal.app.status]?.en ?? ''}
               </Text>
 
               <View style={styles.statusMeta}>
@@ -698,32 +692,47 @@ export default function SchemesScreen() {
                   <Text style={styles.statusMetaLabel}>
                     {state.lang === 'hi' ? 'आवेदन ID' : state.lang === 'mr' ? 'अर्ज ID' : 'Application ID'}
                   </Text>
-                  <Text style={styles.statusMetaValue}>{statusModal.applicationId}</Text>
+                  <Text style={styles.statusMetaValue}>{statusModal.app.applicationId}</Text>
                 </View>
                 <View style={styles.statusMetaDivider}/>
                 <View style={styles.statusMetaRow}>
                   <Text style={styles.statusMetaLabel}>
                     {state.lang === 'hi' ? 'आवेदन की तारीख' : state.lang === 'mr' ? 'अर्जाची तारीख' : 'Applied On'}
                   </Text>
-                  <Text style={styles.statusMetaValue}>{new Date(statusModal.appliedAt).toLocaleDateString('en-IN')}</Text>
+                  <Text style={styles.statusMetaValue}>{new Date(statusModal.app.appliedAt).toLocaleDateString('en-IN')}</Text>
                 </View>
-                {statusModal.adminReply ? (
+                {(statusModal.app.adminNotes || statusModal.app.adminReply) ? (
                   <>
                     <View style={styles.statusMetaDivider}/>
                     <View style={styles.statusAdminReply}>
-                      <Text style={styles.statusMetaLabel}>
-                        {state.lang === 'hi' ? 'अधिकारी टिप्पणी' : state.lang === 'mr' ? 'अधिकाऱ्याची टिप्पणी' : 'Officer Reply'}
+                      <Text style={[styles.statusMetaLabel, statusModal.app.status === 'Rejected' && { color: '#DC2626' }]}>
+                        {statusModal.app.status === 'Rejected'
+                          ? (state.lang === 'hi' ? '❌ अस्वीकृति का कारण' : state.lang === 'mr' ? '❌ नाकारण्याचे कारण' : '❌ Reason for Rejection')
+                          : (state.lang === 'hi' ? 'अधिकारी टिप्पणी' : state.lang === 'mr' ? 'अधिकाऱ्याची टिप्पणी' : 'Officer Reply')}
                       </Text>
-                      <Text style={styles.statusAdminReplyText}>{statusModal.adminReply}</Text>
+                      <Text style={[styles.statusAdminReplyText, statusModal.app.status === 'Rejected' && { color: '#DC2626', fontWeight: '700' }]}>
+                        {statusModal.app.adminNotes ?? statusModal.app.adminReply}
+                      </Text>
                     </View>
                   </>
                 ) : null}
               </View>
             </View>
 
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.statusCloseBtn} onPress={() => setStatusModal(null)} activeOpacity={0.85}>
-                <Text style={styles.statusCloseBtnText}>
+            <View style={[styles.modalFooter, { gap: 10 }]}>
+              {statusModal.reapplyFn && (
+                <TouchableOpacity
+                  style={[styles.statusCloseBtn, { backgroundColor: COLORS.primary }]}
+                  onPress={() => { setStatusModal(null); statusModal.reapplyFn?.(); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.statusCloseBtnText}>
+                    {state.lang === 'hi' ? '🔄 पुनः आवेदन करें' : state.lang === 'mr' ? '🔄 पुन्हा अर्ज करा' : '🔄 Re-apply'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.statusCloseBtn, { backgroundColor: COLORS.border }]} onPress={() => setStatusModal(null)} activeOpacity={0.85}>
+                <Text style={[styles.statusCloseBtnText, { color: COLORS.text }]}>
                   {state.lang === 'hi' ? 'बंद करें' : state.lang === 'mr' ? 'बंद करा' : 'Close'}
                 </Text>
               </TouchableOpacity>
