@@ -28,10 +28,6 @@ args = "API Server"
 task = "workflow.run"
 args = "Port Redirect"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Kisan Mitra"
-
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -63,17 +59,6 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node scripts/redirect-8080.mjs"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "Kisan Mitra"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd artifacts/kisan-mitra && pnpm exec expo start --web --port 8008"
 
 [workflows.workflow.metadata]
 outputType = "console"
