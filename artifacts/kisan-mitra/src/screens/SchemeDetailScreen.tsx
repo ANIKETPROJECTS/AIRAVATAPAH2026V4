@@ -201,6 +201,11 @@ export default function SchemeDetailScreen() {
   }
 
   function getMissingDocIds(requiredDocIds: DocumentTypeId[]): DocumentTypeId[] {
+    const totalUploaded = Math.max(
+      (farmer?.docs ?? []).length,
+      farmer?.documentsCount ?? 0,
+    );
+    if (totalUploaded >= 5) return [];
     const uploadedSections = new Set((farmer?.docs ?? []).map(d => d.section));
     return requiredDocIds.filter(id => !uploadedSections.has(id));
   }
