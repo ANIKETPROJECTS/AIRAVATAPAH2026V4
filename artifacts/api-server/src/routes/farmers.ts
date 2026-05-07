@@ -235,8 +235,17 @@ router.post("/farmers/:farmerId/documents", async (req, res, next) => {
 router.delete("/farmers", async (_req, res, next) => {
   try {
     const db = getDb();
-    const result = await db.collection("farmers").deleteMany({});
-    res.json({ success: true, deleted: result.deletedCount });
+    const [farmersResult, grievancesResult, applicationsResult] = await Promise.all([
+      db.collection("farmers").deleteMany({}),
+      db.collection("grievances").deleteMany({}),
+      db.collection("applications").deleteMany({}),
+    ]);
+    res.json({
+      success: true,
+      deleted: farmersResult.deletedCount,
+      grievancesDeleted: grievancesResult.deletedCount,
+      applicationsDeleted: applicationsResult.deletedCount,
+    });
   } catch (err) {
     next(err);
   }
@@ -245,9 +254,18 @@ router.delete("/farmers", async (_req, res, next) => {
 router.delete("/farmers/:id", async (req, res, next) => {
   try {
     const db = getDb();
-    const result = await db.collection("farmers").deleteOne({ farmerId: req.params["id"] });
-    if (result.deletedCount === 0) { res.status(404).json({ error: "Farmer not found" }); return; }
-    res.json({ success: true });
+    const farmerId = req.params["id"];
+    const farmerResult = await db.collection("farmers").deleteOne({ farmerId });
+    if (farmerResult.deletedCount === 0) { res.status(404).json({ error: "Farmer not found" }); return; }
+    const [grievancesResult, applicationsResult] = await Promise.all([
+      db.collection("grievances").deleteMany({ farmerId }),
+      db.collection("applications").deleteMany({ farmerId }),
+    ]);
+    res.json({
+      success: true,
+      grievancesDeleted: grievancesResult.deletedCount,
+      applicationsDeleted: applicationsResult.deletedCount,
+    });
   } catch (err) {
     next(err);
   }
