@@ -71,13 +71,13 @@ outputType = "console"
 name = "Kisan Mitra"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/kisan-mitra run web"
-waitForPort = 8008
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/kisan-mitra && ./node_modules/.bin/expo start --web --port 8008"
+waitForPort = 8008
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -102,10 +102,6 @@ externalPort = 8000
 [[ports]]
 localPort = 8008
 externalPort = 8008
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
 
 [[ports]]
 localPort = 8081
