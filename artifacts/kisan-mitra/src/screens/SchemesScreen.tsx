@@ -3,13 +3,13 @@ import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   FlatList, TextInput, ActivityIndicator, Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
 import { Scheme, InsuranceSubsidy, Application } from '../types';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import { RootStackParamList, TabParamList } from '../navigation/AppNavigator';
 
 type SchemeFilter = 'ALL' | 'CENTRAL' | 'STATE';
 type Tab = 'schemes' | 'insurance' | 'subsidies';
@@ -92,12 +92,19 @@ const APP_STATUS_LABEL: Record<string, string> = {
 export default function SchemesScreen() {
   const { state } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<TabParamList, 'Schemes'>>();
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
   const farmer = state.farmer;
   const crop = farmer?.crop;
   const land = farmer?.land;
 
-  const [tab, setTab] = useState<Tab>('schemes');
+  const routeInitialTab = (route.params as { initialTab?: Tab } | undefined)?.initialTab;
+  const [tab, setTab] = useState<Tab>(routeInitialTab ?? 'schemes');
+
+  useEffect(() => {
+    if (routeInitialTab) setTab(routeInitialTab);
+  }, [routeInitialTab]);
+
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [insuranceItems, setInsuranceItems] = useState<InsuranceSubsidy[]>([]);
   const [subsidyItems, setSubsidyItems] = useState<InsuranceSubsidy[]>([]);
@@ -138,10 +145,23 @@ export default function SchemesScreen() {
     itemId: string,
     itemName: string,
     itemType?: string | null,
+    eligible?: boolean,
+    eligibilityText?: string,
   ) {
     if (!farmer) return;
     const mobile = farmer.mobile ?? state.mobile;
     if (!mobile) return;
+
+    if (eligible === false) {
+      const notEligibleTitle = state.lang === 'hi' ? 'पात्र नहीं' : state.lang === 'mr' ? 'अपात्र' : 'Not Eligible';
+      const notEligibleMsg = state.lang === 'hi'
+        ? `आप "${itemName}" के लिए पात्र नहीं हैं।\n\n${eligibilityText ? `पात्रता शर्त: ${eligibilityText}` : 'आपकी फसल या जमीन इस योजना की शर्तें पूरी नहीं करती।'}`
+        : state.lang === 'mr'
+        ? `तुम्ही "${itemName}" साठी पात्र नाही.\n\n${eligibilityText ? `पात्रता अट: ${eligibilityText}` : 'तुमची पीक किंवा जमीन या योजनेच्या अटी पूर्ण करत नाही.'}`
+        : `You do not meet the eligibility criteria for "${itemName}".\n\n${eligibilityText ? `Eligibility: ${eligibilityText}` : 'Your crop type or land holding does not match the scheme requirements.'}`;
+      Alert.alert(notEligibleTitle, notEligibleMsg, [{ text: 'OK' }]);
+      return;
+    }
 
     const applyLabel = state.lang === 'hi' ? 'आवेदन करें' : state.lang === 'mr' ? 'अर्ज करा' : 'Apply';
     const confirmMsg = state.lang === 'hi'
@@ -397,14 +417,16 @@ export default function SchemesScreen() {
 
                   {item.status === 'Active' && !existingApp && (
                     <TouchableOpacity
-                      style={[styles.applyBtn, eligible && styles.applyBtnEligible, isApplyingThis && styles.applyBtnDisabled]}
+                      style={[styles.applyBtn, eligible && styles.applyBtnEligible, !eligible && styles.applyBtnIneligible, isApplyingThis && styles.applyBtnDisabled]}
                       disabled={isApplyingThis}
-                      onPress={() => handleApply(appType, item.id, item.name, itemType)}
+                      onPress={() => handleApply(appType, item.id, item.name, itemType, eligible, tab === 'schemes' ? formatEligibilityForDisplay((item as Scheme).eligibility) : (item as InsuranceSubsidy).eligibility ?? '')}
                     >
                       {isApplyingThis
                         ? <ActivityIndicator size="small" color={COLORS.white}/>
-                        : <Text style={styles.applyText}>
-                            {state.lang === 'hi' ? 'आवेदन करें' : state.lang === 'mr' ? 'अर्ज करा' : 'Apply Now'}
+                        : <Text style={[styles.applyText, !eligible && styles.applyTextIneligible]}>
+                            {!eligible
+                              ? (state.lang === 'hi' ? 'अपात्र' : state.lang === 'mr' ? 'अपात्र' : 'Check Eligibility')
+                              : (state.lang === 'hi' ? 'आवेदन करें' : state.lang === 'mr' ? 'अर्ज करा' : 'Apply Now')}
                           </Text>
                       }
                     </TouchableOpacity>
@@ -501,8 +523,10 @@ const styles = StyleSheet.create({
   knowMoreText: { fontSize: FONT_SIZE.sm, fontWeight: '800', color: COLORS.primary },
   applyBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.md, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
   applyBtnEligible: { backgroundColor: COLORS.primaryDark },
+  applyBtnIneligible: { backgroundColor: 'transparent', borderWidth: 2, borderColor: COLORS.error },
   applyBtnDisabled: { opacity: 0.7 },
   applyText: { fontSize: FONT_SIZE.sm, fontWeight: '800', color: COLORS.white },
+  applyTextIneligible: { color: COLORS.error },
   appliedBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center' },
   appliedBtnText: { fontSize: FONT_SIZE.sm, fontWeight: '800' },
 });

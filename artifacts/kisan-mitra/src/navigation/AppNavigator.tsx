@@ -38,7 +38,7 @@ export type RootStackParamList = {
 
 export type TabParamList = {
   Home: undefined;
-  Schemes: undefined;
+  Schemes: { initialTab?: 'schemes' | 'insurance' | 'subsidies' } | undefined;
   Notifications: undefined;
   Analytics: undefined;
   Profile: undefined;

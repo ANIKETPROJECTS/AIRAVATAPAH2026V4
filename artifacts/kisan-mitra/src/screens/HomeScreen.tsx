@@ -5,11 +5,12 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
 import { Notification } from '../types';
-import type { RootStackParamList } from '../navigation/AppNavigator';
+import type { RootStackParamList, TabParamList } from '../navigation/AppNavigator';
 
 const QUICK_ACTIONS = [
   { key: 'applyScheme', icon: '📋', color: COLORS.primary },
@@ -23,7 +24,8 @@ export default function HomeScreen() {
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
   const farmer = state.farmer;
   const [recentNotifs, setRecentNotifs] = useState<Notification[]>([]);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const stackNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const tabNav = useNavigation<BottomTabNavigationProp<TabParamList>>();
 
   useEffect(() => {
     if (state.mobile) {
@@ -39,10 +41,21 @@ export default function HomeScreen() {
 
   function handleQuickAction(key: string) {
     if (key === 'raiseGrievance') {
-      navigation.navigate('Grievance');
+      stackNav.navigate('Grievance');
       return;
     }
-    Alert.alert(t(key), 'This feature is coming soon. Please visit your nearest agriculture office or use the web portal for now.');
+    if (key === 'applyScheme') {
+      tabNav.navigate('Schemes', { initialTab: 'schemes' });
+      return;
+    }
+    if (key === 'fileInsurance') {
+      tabNav.navigate('Schemes', { initialTab: 'insurance' });
+      return;
+    }
+    if (key === 'checkSubsidy') {
+      tabNav.navigate('Schemes', { initialTab: 'subsidies' });
+      return;
+    }
   }
 
   const greetName = farmer?.name && farmer.name !== '—' ? farmer.name.split(' ')[0] : '';
