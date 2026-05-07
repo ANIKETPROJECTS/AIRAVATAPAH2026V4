@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Search, LayoutGrid, LayoutList, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Search, LayoutGrid, LayoutList, ChevronLeft, ChevronRight, ArrowLeft, Shield, CheckCircle2, FileText, Info, TrendingUp, Star } from "lucide-react";
 
 interface InsuranceSubsidy {
   id: string;
@@ -171,60 +171,190 @@ function RegionBadge({ region }: { region: "Central" | "Maharashtra" }) {
   );
 }
 
-/* ═══════════ Detail Panel ════════════ */
-function DetailPanel({ item, onClose }: { item: InsuranceSubsidy; onClose: () => void }) {
-  const panelRef = useRef<HTMLDivElement>(null);
+/* ═══════════ Detail Page ════════════ */
+function DetailPage({ item, onBack, onEdit }: { item: InsuranceSubsidy; onBack: () => void; onEdit: (i: InsuranceSubsidy) => void }) {
+  const [tab, setTab] = useState<"overview" | "parameters" | "features">("overview");
+  const isInsurance = item.type === "Insurance";
+  const gradientStyle = isInsurance
+    ? { background: "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 50%, #6ee7b7 100%)" }
+    : { background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #fcd34d 100%)" };
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
+  const featureList = item.features.split(/\.\s+|\n/).map(f => f.replace(/\.$/, "").trim()).filter(Boolean);
+  const criteriaList = item.criteria ? item.criteria.split(/\n|;\s*/).map(c => c.trim()).filter(Boolean) : [];
+  const paramList = item.parameters.split(/\n|;\s*/).map(p => p.trim()).filter(Boolean);
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: Info },
+    { id: "parameters", label: "Parameters & Benefits", icon: TrendingUp },
+    { id: "features", label: "Key Features", icon: Star },
+  ] as const;
 
   return (
-    <div ref={panelRef} className="fixed top-0 right-0 z-50 h-full w-1/2 bg-card border-l border-border shadow-2xl flex flex-col overflow-hidden" style={{ minWidth: 460 }}>
-      <div className="flex items-start justify-between px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
-        <div className="flex-1 pr-3">
-          <h2 className="font-heading text-base font-semibold leading-snug mb-2 whitespace-nowrap overflow-hidden text-ellipsis">{item.name}</h2>
-          <div className="flex flex-wrap gap-2">
-            <TypeBadge type={item.type}/>
-            <RegionBadge region={item.region}/>
-            {item.status && (
-              <span className={`inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold ${item.status === "Active" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-                {item.status === "Active" ? "✅ Active" : "⛔ Closed"}
-              </span>
+    <div className="space-y-0">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 mb-4">
+        <button onClick={onBack}
+          className={`flex items-center gap-1.5 text-sm font-medium transition-colors group ${isInsurance ? "text-emerald-700 hover:text-emerald-800" : "text-amber-700 hover:text-amber-800"}`}>
+          <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform"/>
+          {isInsurance ? "All Insurance" : "All Subsidies"}
+        </button>
+        <span className="text-slate-300">/</span>
+        <span className="text-sm text-slate-500 truncate max-w-xs">{item.name}</span>
+      </div>
+
+      {/* Hero header */}
+      <div className="rounded-2xl overflow-hidden border border-slate-200 shadow-sm mb-5">
+        <div className="px-6 py-5" style={gradientStyle}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <TypeBadge type={item.type}/>
+                <RegionBadge region={item.region}/>
+                {item.status && (
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold border ${
+                    item.status === "Active"
+                      ? isInsurance
+                        ? "border-emerald-400 text-emerald-800 bg-emerald-100/60"
+                        : "border-amber-400 text-amber-800 bg-amber-100/60"
+                      : "border-slate-300 text-slate-500 bg-white/50"
+                  }`}>
+                    {item.status === "Active" ? "● Active" : "● Closed"}
+                  </span>
+                )}
+              </div>
+              <h2 className={`font-bold text-xl leading-snug mb-2 ${isInsurance ? "text-emerald-950" : "text-amber-950"}`}>{item.name}</h2>
+              <p className={`text-sm leading-relaxed max-w-2xl ${isInsurance ? "text-emerald-800/70" : "text-amber-800/70"}`}>{item.eligibility}</p>
+            </div>
+            <div className="flex-shrink-0">
+              <button onClick={() => onEdit(item)}
+                className="text-sm px-4 py-2 rounded-lg bg-white/70 hover:bg-white transition-colors font-semibold shadow-sm border border-white/60">
+                Edit
+              </button>
+            </div>
+          </div>
+
+          {/* Key stats */}
+          <div className="grid grid-cols-3 gap-3 mt-5">
+            {[
+              { label: "Type", val: item.type, icon: Shield },
+              { label: "Region", val: item.region, icon: FileText },
+              { label: "Status", val: item.status || "Active", icon: CheckCircle2 },
+            ].map(stat => (
+              <div key={stat.label} className="bg-white/70 backdrop-blur rounded-xl px-3 py-2.5 border border-white/60">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <stat.icon className="h-3.5 w-3.5 opacity-60"/>
+                  <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">{stat.label}</span>
+                </div>
+                <div className="text-sm font-bold">{stat.val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Parameters strip */}
+        <div className="bg-white border-t border-slate-100 px-6 py-3 flex items-start gap-2">
+          <TrendingUp className={`h-4 w-4 flex-shrink-0 mt-0.5 ${isInsurance ? "text-emerald-600" : "text-amber-600"}`}/>
+          <div>
+            <span className={`text-xs font-bold mr-2 ${isInsurance ? "text-emerald-800" : "text-amber-800"}`}>
+              {isInsurance ? "Coverage:" : "Benefit:"}
+            </span>
+            <span className={`text-xs ${isInsurance ? "text-emerald-700" : "text-amber-700"}`}>{item.parameters}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4 bg-slate-100/60 rounded-xl p-1">
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex-1 justify-center ${
+              tab === t.id
+                ? isInsurance ? "bg-white shadow-sm text-emerald-800" : "bg-white shadow-sm text-amber-800"
+                : "text-slate-500 hover:text-slate-700"
+            }`}>
+            <t.icon className="h-3.5 w-3.5 flex-shrink-0"/><span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {tab === "overview" && (
+        <div className="grid grid-cols-2 gap-4">
+          {/* Eligibility */}
+          <div className="col-span-2 bg-white border border-slate-200 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className={`h-4 w-4 ${isInsurance ? "text-emerald-600" : "text-amber-600"}`}/>
+              <h3 className="font-bold text-slate-800">Eligibility</h3>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 rounded-lg px-4 py-3">{item.eligibility}</p>
+          </div>
+
+          {/* Criteria */}
+          {criteriaList.length > 0 && (
+            <div className="col-span-2 bg-white border border-slate-200 rounded-xl p-5">
+              <h3 className="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                <CheckCircle2 className={`h-4 w-4 ${isInsurance ? "text-emerald-600" : "text-amber-600"}`}/> Eligibility Criteria
+              </h3>
+              <div className="grid grid-cols-2 gap-2">
+                {criteriaList.map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm text-slate-600 px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg">
+                    <CheckCircle2 className={`h-3.5 w-3.5 flex-shrink-0 mt-0.5 ${isInsurance ? "text-emerald-500" : "text-amber-500"}`}/>{c}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Added date */}
+          <div className="col-span-2 text-xs text-slate-400 text-right">
+            Added: {new Date(item.createdAt).toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
+          </div>
+        </div>
+      )}
+
+      {tab === "parameters" && (
+        <div className="space-y-4">
+          <div className={`rounded-xl p-5 border ${isInsurance ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+            <h3 className={`font-bold text-sm mb-4 flex items-center gap-2 ${isInsurance ? "text-emerald-800" : "text-amber-800"}`}>
+              <TrendingUp className="h-4 w-4"/> {isInsurance ? "Coverage & Premium Details" : "Subsidy Amount & Structure"}
+            </h3>
+            {paramList.length > 1 ? (
+              <ul className="space-y-3">
+                {paramList.map((p, i) => (
+                  <li key={i} className={`flex items-start gap-2.5 text-sm px-3 py-2.5 bg-white/60 rounded-lg border ${isInsurance ? "text-emerald-800 border-emerald-100" : "text-amber-800 border-amber-100"}`}>
+                    <span className={`flex-shrink-0 font-bold text-base leading-none ${isInsurance ? "text-emerald-600" : "text-amber-600"}`}>{isInsurance ? "🛡" : "💰"}</span>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={`text-sm leading-relaxed ${isInsurance ? "text-emerald-800" : "text-amber-800"}`}>{item.parameters}</p>
             )}
           </div>
         </div>
-        <button onClick={onClose} className="flex-shrink-0 p-1.5 rounded-lg hover:bg-muted transition-colors">
-          <X className="h-4 w-4 text-muted-foreground"/>
-        </button>
-      </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 text-sm">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Eligibility</p>
-          <p className="text-xs leading-relaxed text-foreground bg-muted/20 rounded-lg px-3 py-2.5">{item.eligibility}</p>
+      {tab === "features" && (
+        <div className="space-y-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-5">
+            <h3 className="font-bold text-slate-800 text-sm mb-4 flex items-center gap-2">
+              <Star className={`h-4 w-4 ${isInsurance ? "text-emerald-500" : "text-amber-500"}`}/> Key Features & Highlights
+            </h3>
+            {featureList.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {featureList.map((f, i) => (
+                  <div key={i} className={`flex items-start gap-2.5 text-sm text-slate-700 px-4 py-3 rounded-lg border ${isInsurance ? "bg-emerald-50/60 border-emerald-100" : "bg-amber-50/60 border-amber-100"}`}>
+                    <span className={`flex-shrink-0 text-base leading-none ${isInsurance ? "text-emerald-600" : "text-amber-600"}`}>{isInsurance ? "🛡" : "💰"}</span>
+                    <span className="leading-relaxed">{f}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No features listed for this entry.</p>
+            )}
+          </div>
         </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Parameters / Benefits</p>
-          <p className="text-xs leading-relaxed text-foreground bg-secondary/10 border border-secondary/20 rounded-lg px-3 py-2.5">{item.parameters}</p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Key Features</p>
-          <ul className="space-y-1.5">
-            {item.features.split(". ").filter(Boolean).map((f, i) => (
-              <li key={i} className="text-xs flex gap-2 items-start">
-                <span className={`flex-shrink-0 mt-0.5 ${item.type === "Insurance" ? "text-success" : "text-secondary"}`}>{item.type === "Insurance" ? "🛡" : "💰"}</span>
-                <span>{f.replace(/\.$/, "")}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <p className="text-[11px] text-muted-foreground">Added: {new Date(item.createdAt).toLocaleDateString()}</p>
-      </div>
+      )}
     </div>
   );
 }
@@ -349,6 +479,19 @@ export default function AllInsuranceSubsidies({ defaultTypeFilter }: AllInsuranc
 
   const pageNumbers = useMemo(() => Array.from({ length: totalPages }, (_, i) => i), [totalPages]);
 
+  if (selected) {
+    return (
+      <>
+        <DetailPage
+          item={selected}
+          onBack={() => setSelected(null)}
+          onEdit={i => { setSelected(null); setEditItem(i); setShowForm(true); }}
+        />
+        {showForm && <InsuranceSubsidyFormModal item={editItem} onClose={() => { setShowForm(false); setEditItem(null); }} onSaved={saved => { handleSaved(saved); setSelected(saved); }}/>}
+      </>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Controls */}
@@ -460,7 +603,6 @@ export default function AllInsuranceSubsidies({ defaultTypeFilter }: AllInsuranc
         </>
       )}
 
-      {selected && <DetailPanel item={selected} onClose={() => setSelected(null)}/>}
       {showForm && <InsuranceSubsidyFormModal item={editItem} onClose={() => { setShowForm(false); setEditItem(null); }} onSaved={handleSaved}/>}
       {deleteTarget && <DeleteConfirm name={deleteTarget.name} onCancel={() => setDeleteTarget(null)} onConfirm={handleDeleteConfirm} loading={deleting}/>}
     </div>
