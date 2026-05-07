@@ -364,7 +364,10 @@ export default function SchemesScreen() {
   }
 
   function getEligibilityCategory(_item: Scheme | InsuranceSubsidy, _itemTab: Tab): EligibilityFilter {
-    const uploadedCount = (farmer?.docs ?? []).length;
+    const uploadedCount = Math.max(
+      (farmer?.docs ?? []).length,
+      farmer?.documentsCount ?? 0,
+    );
     const totalDocs = 5;
     if (uploadedCount >= totalDocs) return 'ELIGIBLE';
     if (uploadedCount > 0) return 'PARTIAL';

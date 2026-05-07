@@ -53,9 +53,12 @@ interface EligibilityResult {
 function assessEligibility(
   tabType: 'schemes' | 'insurance' | 'subsidies',
   item: Scheme | InsuranceSubsidy,
-  farmer: { docs?: { section: string; status: string }[]; status?: string } | null,
+  farmer: { docs?: { section: string; status: string }[]; documentsCount?: number; status?: string } | null,
 ): EligibilityResult {
-  const uploadedCount = (farmer?.docs ?? []).length;
+  const uploadedCount = Math.max(
+    (farmer?.docs ?? []).length,
+    farmer?.documentsCount ?? 0,
+  );
   const totalDocs = 5;
 
   const reasons: { ok: boolean; text: string }[] = [

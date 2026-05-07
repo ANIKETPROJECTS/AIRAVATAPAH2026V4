@@ -38,10 +38,23 @@ router.get("/farmers/by-phone/:phone", async (req, res, next) => {
     const db = getDb();
     const col = db.collection("farmers");
     const phone = req.params["phone"];
-    const farmer = await col.findOne(
-      { $or: [{ mobile: phone }, { aadhaarMobile: phone }] },
-      { projection: { _id: 0 } }
-    );
+    const rows = await col.aggregate([
+      { $match: { $or: [{ mobile: phone }, { aadhaarMobile: phone }] } },
+      {
+        $project: {
+          _id: 0,
+          farmerId: 1, name: 1, mobile: 1, aadhaarMobile: 1, status: 1,
+          district: 1, village: 1, taluka: 1, surveyNumber: 1,
+          bankAccount: 1, bankName: 1, ifsc: 1, branchName: 1,
+          crop: 1, land: 1, gender: 1, dob: 1, fatherName: 1, address: 1,
+          aadhaar: 1, source: 1, addedAt: 1, updatedAt: 1, rejectionReason: 1,
+          docs: 1,
+          documentsCount: { $size: { $ifNull: ["$documents", []] } },
+        },
+      },
+      { $limit: 1 },
+    ]).toArray();
+    const farmer = rows[0] ?? null;
     if (!farmer) { res.status(404).json({ error: "Farmer not found" }); return; }
     res.json(farmer);
   } catch (err) {

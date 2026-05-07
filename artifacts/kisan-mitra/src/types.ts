@@ -28,6 +28,7 @@ export interface Farmer {
   fatherName?: string;
   address?: string;
   docs?: FarmerDoc[];
+  documentsCount?: number;
   addedAt: string;
   source?: string;
   rejectionReason?: string;
