@@ -30,10 +30,6 @@ args = "Port Redirect"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Farmer App"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Kisan Mitra"
 
 [[workflows.workflow]]
@@ -72,18 +68,6 @@ args = "node scripts/redirect-8080.mjs"
 outputType = "console"
 
 [[workflows.workflow]]
-name = "Farmer App"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/farmer-app run web"
-waitForPort = 8099
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
 name = "Kisan Mitra"
 author = "agent"
 
@@ -92,7 +76,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm --filter @workspace/kisan-mitra run web"
+args = "cd artifacts/kisan-mitra && pnpm exec expo start --web --port 8008"
 waitForPort = 8008
 
 [agent]
@@ -118,10 +102,6 @@ externalPort = 8000
 [[ports]]
 localPort = 8008
 externalPort = 8008
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
 
 [[ports]]
 localPort = 8081
