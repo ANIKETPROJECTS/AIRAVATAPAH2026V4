@@ -92,6 +92,22 @@ const APP_STATUS_LABEL: Record<string, string> = {
   Settled:        'Settled 💰',
 };
 
+const APP_STATUS_ICON: Record<string, string> = {
+  Pending:        '⏳',
+  'Under Review': '🔍',
+  Approved:       '✅',
+  Rejected:       '❌',
+  Settled:        '💰',
+};
+
+const APP_STATUS_DESC: Record<string, { en: string; hi: string; mr: string }> = {
+  Pending:        { en: 'Your application has been submitted and is awaiting review by the district officer.', hi: 'आपका आवेदन सफलतापूर्वक जमा हो गया है और जिला अधिकारी द्वारा समीक्षा की प्रतीक्षा है।', mr: 'तुमचा अर्ज यशस्वीरित्या सादर केला गेला आहे आणि जिल्हा अधिकाऱ्याच्या पुनरावलोकनाची प्रतीक्षा आहे.' },
+  'Under Review': { en: 'Your application is currently being reviewed by the district officer.', hi: 'आपका आवेदन वर्तमान में जिला अधिकारी द्वारा समीक्षा में है।', mr: 'तुमचा अर्ज सध्या जिल्हा अधिकाऱ्याद्वारे पुनरावलोकनाधीन आहे.' },
+  Approved:       { en: 'Congratulations! Your application has been approved.', hi: 'बधाई! आपका आवेदन स्वीकृत हो गया है।', mr: 'अभिनंदन! तुमचा अर्ज मंजूर झाला आहे.' },
+  Rejected:       { en: 'Your application has been rejected. You may re-apply or contact the office for details.', hi: 'आपका आवेदन अस्वीकृत कर दिया गया है। आप पुनः आवेदन कर सकते हैं या विवरण के लिए कार्यालय से संपर्क करें।', mr: 'तुमचा अर्ज नाकारला गेला आहे. तुम्ही पुन्हा अर्ज करू शकता किंवा तपशीलांसाठी कार्यालयाशी संपर्क साधा.' },
+  Settled:        { en: 'Your claim has been settled. Funds will be transferred to your registered bank account.', hi: 'आपका दावा निपटा दिया गया है। धनराशि आपके पंजीकृत बैंक खाते में स्थानांतरित की जाएगी।', mr: 'तुमचा दावा निकाला गेला आहे. निधी तुमच्या नोंदणीकृत बँक खात्यात हस्तांतरित केला जाईल.' },
+};
+
 export default function SchemesScreen() {
   const { state } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -123,6 +139,8 @@ export default function SchemesScreen() {
   const [filter, setFilter] = useState<SchemeFilter>('ALL');
   const [eligFilter, setEligFilter] = useState<EligibilityFilter>('ALL');
   const [search, setSearch] = useState('');
+  const [successModal, setSuccessModal] = useState<{ schemeName: string; applicationId: string } | null>(null);
+  const [statusModal, setStatusModal] = useState<Application | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -267,15 +285,7 @@ export default function SchemesScreen() {
         documentRefs: docIds,
       });
       setMyApplications(prev => [...prev, app]);
-      Alert.alert(
-        state.lang === 'hi' ? 'आवेदन सफल! ✅' : state.lang === 'mr' ? 'अर्ज यशस्वी! ✅' : 'Application Submitted! ✅',
-        state.lang === 'hi'
-          ? `"${itemName}" के लिए आवेदन सफलतापूर्वक जमा किया गया।\nID: ${app.applicationId}`
-          : state.lang === 'mr'
-          ? `"${itemName}" साठी अर्ज यशस्वीरित्या सादर केला गेला.\nID: ${app.applicationId}`
-          : `Your application for "${itemName}" has been submitted.\n\nApp ID: ${app.applicationId}`,
-        [{ text: 'OK' }],
-      );
+      setSuccessModal({ schemeName: itemName, applicationId: app.applicationId });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed';
       if (msg.includes('Already applied')) {
@@ -592,11 +602,15 @@ export default function SchemesScreen() {
                   )}
 
                   {item.status !== 'Closed' && existingApp && existingApp.status !== 'Rejected' && (
-                    <View style={[styles.appliedBtn, { backgroundColor: `${APP_STATUS_COLOR[existingApp.status] ?? '#6B7280'}20` }]}>
+                    <TouchableOpacity
+                      style={[styles.appliedBtn, { backgroundColor: `${APP_STATUS_COLOR[existingApp.status] ?? '#6B7280'}20`, borderWidth: 1.5, borderColor: `${APP_STATUS_COLOR[existingApp.status] ?? '#6B7280'}60` }]}
+                      onPress={() => setStatusModal(existingApp)}
+                      activeOpacity={0.7}
+                    >
                       <Text style={[styles.appliedBtnText, { color: APP_STATUS_COLOR[existingApp.status] ?? '#6B7280' }]}>
-                        {APP_STATUS_LABEL[existingApp.status] ?? existingApp.status}
+                        {APP_STATUS_ICON[existingApp.status] ?? '📋'} Status
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   )}
 
                   {existingApp && existingApp.status === 'Rejected' && item.status !== 'Closed' && (
@@ -615,6 +629,110 @@ export default function SchemesScreen() {
           }}
         />
       )}
+    {/* Success Modal */}
+    {successModal && (
+      <Modal visible animationType="fade" transparent onRequestClose={() => setSuccessModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.successSheet}>
+            <View style={styles.successIconCircle}>
+              <Text style={styles.successIconText}>✅</Text>
+            </View>
+            <Text style={styles.successTitle}>
+              {state.lang === 'hi' ? 'आवेदन सफल!' : state.lang === 'mr' ? 'अर्ज यशस्वी!' : 'Application Submitted!'}
+            </Text>
+            <Text style={styles.successSchemeName} numberOfLines={2}>{successModal.schemeName}</Text>
+            <Text style={styles.successBody}>
+              {state.lang === 'hi'
+                ? 'आपका आवेदन सफलतापूर्वक जमा कर दिया गया है। जिला अधिकारी इसकी समीक्षा करेंगे।'
+                : state.lang === 'mr'
+                ? 'तुमचा अर्ज यशस्वीरित्या सादर केला गेला आहे. जिल्हा अधिकारी त्याचे पुनरावलोकन करतील.'
+                : 'Your application has been successfully submitted. The district officer will review it shortly.'}
+            </Text>
+            <View style={styles.successIdBox}>
+              <Text style={styles.successIdLabel}>
+                {state.lang === 'hi' ? 'आवेदन ID' : state.lang === 'mr' ? 'अर्ज ID' : 'Application ID'}
+              </Text>
+              <Text style={styles.successIdValue}>{successModal.applicationId}</Text>
+            </View>
+            <TouchableOpacity style={styles.successBtn} onPress={() => setSuccessModal(null)} activeOpacity={0.85}>
+              <Text style={styles.successBtnText}>
+                {state.lang === 'hi' ? 'ठीक है' : state.lang === 'mr' ? 'ठीक आहे' : 'Great, Got it!'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    )}
+
+    {/* Status Modal */}
+    {statusModal && (
+      <Modal visible animationType="slide" transparent onRequestClose={() => setStatusModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.statusSheet}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>
+                  {state.lang === 'hi' ? 'आवेदन स्थिति' : state.lang === 'mr' ? 'अर्जाची स्थिती' : 'Application Status'}
+                </Text>
+                <Text style={styles.modalSubtitle} numberOfLines={1}>{statusModal.schemeName}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setStatusModal(null)} style={styles.modalClose}>
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.statusContent}>
+              <View style={[styles.statusBigBadge, { backgroundColor: `${APP_STATUS_COLOR[statusModal.status] ?? '#6B7280'}18`, borderColor: APP_STATUS_COLOR[statusModal.status] ?? '#6B7280' }]}>
+                <Text style={styles.statusBigIcon}>{APP_STATUS_ICON[statusModal.status] ?? '📋'}</Text>
+                <Text style={[styles.statusBigLabel, { color: APP_STATUS_COLOR[statusModal.status] ?? '#6B7280' }]}>
+                  {APP_STATUS_LABEL[statusModal.status] ?? statusModal.status}
+                </Text>
+              </View>
+
+              <Text style={styles.statusDescription}>
+                {APP_STATUS_DESC[statusModal.status]?.[state.lang as 'en' | 'hi' | 'mr'] ?? APP_STATUS_DESC[statusModal.status]?.en ?? ''}
+              </Text>
+
+              <View style={styles.statusMeta}>
+                <View style={styles.statusMetaRow}>
+                  <Text style={styles.statusMetaLabel}>
+                    {state.lang === 'hi' ? 'आवेदन ID' : state.lang === 'mr' ? 'अर्ज ID' : 'Application ID'}
+                  </Text>
+                  <Text style={styles.statusMetaValue}>{statusModal.applicationId}</Text>
+                </View>
+                <View style={styles.statusMetaDivider}/>
+                <View style={styles.statusMetaRow}>
+                  <Text style={styles.statusMetaLabel}>
+                    {state.lang === 'hi' ? 'आवेदन की तारीख' : state.lang === 'mr' ? 'अर्जाची तारीख' : 'Applied On'}
+                  </Text>
+                  <Text style={styles.statusMetaValue}>{new Date(statusModal.appliedAt).toLocaleDateString('en-IN')}</Text>
+                </View>
+                {statusModal.adminReply ? (
+                  <>
+                    <View style={styles.statusMetaDivider}/>
+                    <View style={styles.statusAdminReply}>
+                      <Text style={styles.statusMetaLabel}>
+                        {state.lang === 'hi' ? 'अधिकारी टिप्पणी' : state.lang === 'mr' ? 'अधिकाऱ्याची टिप्पणी' : 'Officer Reply'}
+                      </Text>
+                      <Text style={styles.statusAdminReplyText}>{statusModal.adminReply}</Text>
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.statusCloseBtn} onPress={() => setStatusModal(null)} activeOpacity={0.85}>
+                <Text style={styles.statusCloseBtnText}>
+                  {state.lang === 'hi' ? 'बंद करें' : state.lang === 'mr' ? 'बंद करा' : 'Close'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    )}
+
     {/* Document Upload Modal */}
     {docModal && (
       <Modal visible={docModal.visible} animationType="slide" transparent onRequestClose={() => setDocModal(null)}>
@@ -828,4 +946,32 @@ const styles = StyleSheet.create({
   modalApplyBtn: { backgroundColor: COLORS.primaryDark, paddingVertical: 14, borderRadius: RADIUS.md, alignItems: 'center' },
   modalApplyBtnDisabled: { backgroundColor: COLORS.border },
   modalApplyText: { color: COLORS.white, fontSize: FONT_SIZE.base, fontWeight: '900' },
+
+  successSheet: { backgroundColor: COLORS.white, borderRadius: 24, marginHorizontal: 24, padding: 28, alignItems: 'center', ...SHADOW.md },
+  successIconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 3, borderColor: '#16A34A30' },
+  successIconText: { fontSize: 40 },
+  successTitle: { fontSize: 22, fontWeight: '900', color: COLORS.text, marginBottom: 6, textAlign: 'center' },
+  successSchemeName: { fontSize: FONT_SIZE.base, fontWeight: '700', color: COLORS.primary, marginBottom: 12, textAlign: 'center' },
+  successBody: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 22, textAlign: 'center', marginBottom: 18 },
+  successIdBox: { backgroundColor: COLORS.primaryBg, borderRadius: RADIUS.md, paddingHorizontal: 20, paddingVertical: 12, alignItems: 'center', marginBottom: 20, width: '100%', borderWidth: 1, borderColor: COLORS.primaryLight },
+  successIdLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, fontWeight: '700', marginBottom: 4 },
+  successIdValue: { fontSize: FONT_SIZE.sm, fontWeight: '900', color: COLORS.primaryDark, fontFamily: 'monospace' },
+  successBtn: { backgroundColor: COLORS.primaryDark, paddingVertical: 14, paddingHorizontal: 40, borderRadius: RADIUS.md, width: '100%', alignItems: 'center' },
+  successBtnText: { color: COLORS.white, fontSize: FONT_SIZE.base, fontWeight: '900' },
+
+  statusSheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%', paddingBottom: 24 },
+  statusContent: { paddingHorizontal: 20, paddingTop: 16, gap: 16 },
+  statusBigBadge: { borderRadius: RADIUS.lg, paddingVertical: 16, paddingHorizontal: 20, borderWidth: 2, alignItems: 'center', flexDirection: 'row', gap: 12 },
+  statusBigIcon: { fontSize: 32 },
+  statusBigLabel: { fontSize: 20, fontWeight: '900' },
+  statusDescription: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 22 },
+  statusMeta: { backgroundColor: COLORS.background, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  statusMetaRow: { paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+  statusMetaDivider: { height: 1, backgroundColor: COLORS.border },
+  statusMetaLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, fontWeight: '700', flex: 1 },
+  statusMetaValue: { fontSize: FONT_SIZE.sm, color: COLORS.text, fontWeight: '700', flex: 2, textAlign: 'right' },
+  statusAdminReply: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
+  statusAdminReplyText: { fontSize: FONT_SIZE.sm, color: COLORS.text, lineHeight: 20 },
+  statusCloseBtn: { backgroundColor: COLORS.primaryDark, paddingVertical: 14, borderRadius: RADIUS.md, alignItems: 'center' },
+  statusCloseBtnText: { color: COLORS.white, fontSize: FONT_SIZE.base, fontWeight: '900' },
 });

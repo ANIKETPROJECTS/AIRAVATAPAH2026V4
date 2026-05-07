@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { X, ChevronLeft, ChevronRight, Search, RefreshCw, CheckCircle, XCircle, Clock, Shield } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, RefreshCw, CheckCircle, XCircle, Clock, Shield, ArrowLeft, AlertTriangle } from "lucide-react";
 import { useNotifications } from "@/contexts/NotificationContext";
 
 const DOC_LABEL: Record<string, string> = {
@@ -61,6 +61,8 @@ export default function InsuranceClaims() {
   const [notes, setNotes]     = useState("");
   const [saving, setSaving]   = useState(false);
   const [toast, setToast]     = useState("");
+  const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const prevCount             = useRef(0);
   const { addNotification }   = useNotifications();
   const PAGE_SIZE = 10;
@@ -123,12 +125,176 @@ export default function InsuranceClaims() {
       if (!res.ok) throw new Error("Failed");
       const updated: Application = await res.json();
       setApps(prev => prev.map(a => a.applicationId === id ? updated : a));
-      setReview(null);
+      setReview(prev => prev?.applicationId === id ? updated : prev);
       const msgs: Record<string, string> = { Approved: `✅ ${id} approved`, Settled: `💰 ${id} settled`, Rejected: `❌ ${id} rejected`, "Under Review": `🔍 ${id} under review` };
       showToast(msgs[status] ?? `Updated ${id}`);
       if (status === "Settled") addNotification({ type: "scheme", title: "Insurance Claim Settled", body: `Claim ${id} has been settled.`, farmerId: updated.farmerId, farmerName: updated.farmerName ?? undefined });
     } catch { showToast("⚠️ Update failed"); }
     finally { setSaving(false); }
+  }
+
+  function openRejectModal(id: string) {
+    setRejectReason("");
+    setRejectModal({ id });
+  }
+
+  function confirmReject() {
+    if (!rejectModal) return;
+    updateStatus(rejectModal.id, "Rejected", rejectReason.trim() || notes);
+    setRejectModal(null);
+  }
+
+  if (review) {
+    return (
+      <div className="space-y-4">
+        {toast && <div className="fixed top-4 right-4 z-50 bg-primary text-primary-foreground px-4 py-3 rounded-lg shadow-lg text-sm">{toast}</div>}
+
+        {/* Reject reason modal */}
+        {rejectModal && (
+          <div className="fixed inset-0 bg-foreground/40 z-50 flex items-center justify-center p-4">
+            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-red-600"/>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base">Reject Claim</h3>
+                  <p className="text-xs text-muted-foreground">{rejectModal.id}</p>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold mb-1.5 block">Reason for Rejection <span className="text-red-500">*</span></label>
+                <textarea
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-xl h-24 resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+                  placeholder="Enter the reason for rejecting this claim…"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => setRejectModal(null)} className="px-4 py-2 text-sm rounded-lg bg-muted hover:bg-muted/80">Cancel</button>
+                <button
+                  disabled={saving || !rejectReason.trim()}
+                  onClick={confirmReject}
+                  className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {saving ? "Rejecting…" : "Confirm Reject"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Back header */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => setReview(null)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4"/>
+            Back to Claims
+          </button>
+        </div>
+
+        {/* Full review page */}
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border-b border-border px-6 py-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="font-heading text-2xl">Claim Review</h2>
+                <p className="text-xs font-mono text-secondary mt-1">{review.applicationId}</p>
+              </div>
+              <StatusBadge status={review.status}/>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Farmer info */}
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Farmer Details</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted/30 rounded-xl p-4">
+                <div><p className="text-xs text-muted-foreground">Farmer Name</p><p className="font-semibold mt-0.5">{review.farmerName ?? "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Farmer ID</p><p className="font-mono mt-0.5">{review.farmerId}</p></div>
+                <div><p className="text-xs text-muted-foreground">Mobile</p><p className="mt-0.5">{review.mobile}</p></div>
+                <div><p className="text-xs text-muted-foreground">District</p><p className="mt-0.5">{review.district ?? "—"}</p></div>
+              </div>
+            </div>
+
+            {/* Claim info */}
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Claim Details</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted/30 rounded-xl p-4">
+                <div className="col-span-2"><p className="text-xs text-muted-foreground">Insurance Scheme</p><p className="font-semibold mt-0.5">{review.schemeName}</p></div>
+                <div><p className="text-xs text-muted-foreground">Crop</p><p className="mt-0.5">{review.crop ?? "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Land (Acres)</p><p className="mt-0.5">{review.land ?? "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Filed</p><p className="mt-0.5">{timeAgo(review.appliedAt)}</p></div>
+              </div>
+            </div>
+
+            {/* Loss description */}
+            {review.lossDescription && (
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Loss Description</h3>
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="text-sm text-red-900">{review.lossDescription}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Documents */}
+            {review.documentRefs && review.documentRefs.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Documents Submitted</h3>
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-wrap gap-2">
+                  {review.documentRefs.map(ref => (
+                    <span key={ref} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
+                      ✅ {DOC_LABEL[ref] ?? ref}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Officer notes */}
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Officer Notes</h3>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)}
+                className="w-full px-4 py-3 text-sm bg-background border border-border rounded-xl h-28 resize-none focus:outline-none focus:ring-2 focus:ring-secondary/30"
+                placeholder="Add assessment notes about this claim…"/>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-3 flex-wrap pt-2 border-t border-border">
+              {review.status === "Pending" && (
+                <button disabled={saving} onClick={() => updateStatus(review.applicationId, "Under Review", notes)}
+                  className="text-sm px-5 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 font-semibold">
+                  🔍 Mark Under Review
+                </button>
+              )}
+              {(review.status === "Pending" || review.status === "Under Review") && (
+                <button disabled={saving} onClick={() => updateStatus(review.applicationId, "Approved", notes)}
+                  className="text-sm px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 font-semibold">
+                  ✅ Approve Claim
+                </button>
+              )}
+              {review.status === "Approved" && (
+                <button disabled={saving} onClick={() => updateStatus(review.applicationId, "Settled", notes)}
+                  className="text-sm px-5 py-2.5 rounded-xl bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60 font-semibold">
+                  💰 Settle Claim
+                </button>
+              )}
+              {review.status !== "Rejected" && review.status !== "Settled" && (
+                <button disabled={saving} onClick={() => openRejectModal(review.applicationId)}
+                  className="text-sm px-5 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 disabled:opacity-60 font-semibold">
+                  ❌ Reject Claim
+                </button>
+              )}
+              <button onClick={() => setReview(null)} className="text-sm px-5 py-2.5 rounded-xl bg-muted hover:bg-muted/80 font-semibold ml-auto">
+                Back to List
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -213,18 +379,10 @@ export default function InsuranceClaims() {
                     <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(a.appliedAt)}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={a.status}/></td>
                     <td className="px-4 py-2.5">
-                      <div className="flex gap-1">
-                        <button onClick={() => { setReview(a); setNotes(a.adminNotes ?? ""); }}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-primary text-primary-foreground hover:opacity-90">Review</button>
-                        {a.status === "Approved" && (
-                          <button onClick={() => updateStatus(a.applicationId, "Settled")}
-                            className="text-xs px-2.5 py-1 rounded-lg bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100">Settle</button>
-                        )}
-                        {a.status === "Pending" && (
-                          <button onClick={() => updateStatus(a.applicationId, "Approved")}
-                            className="text-xs px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">Approve</button>
-                        )}
-                      </div>
+                      <button onClick={() => { setReview(a); setNotes(a.adminNotes ?? ""); }}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 font-semibold">
+                        Review
+                      </button>
                     </td>
                   </tr>
                 ))}</tbody>
@@ -241,86 +399,6 @@ export default function InsuranceClaims() {
           </>
         )}
       </div>
-
-      {/* Review Drawer */}
-      {review && (
-        <div className="fixed inset-0 bg-foreground/30 z-50 flex justify-end" onClick={() => setReview(null)}>
-          <div className="bg-card border-l border-border w-full max-w-lg h-full overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="font-heading text-xl">Claim Review</h2>
-                <p className="text-xs font-mono text-secondary mt-0.5">{review.applicationId}</p>
-              </div>
-              <button onClick={() => setReview(null)} className="p-1 rounded hover:bg-muted"><X className="h-5 w-5"/></button>
-            </div>
-            <div className="space-y-5">
-              <div className="bg-muted/30 rounded-xl p-4 space-y-2 text-sm">
-                <div className="grid grid-cols-2 gap-2">
-                  <div><span className="text-muted-foreground text-xs">Farmer</span><div className="font-semibold">{review.farmerName ?? "—"}</div></div>
-                  <div><span className="text-muted-foreground text-xs">Farmer ID</span><div className="font-mono">{review.farmerId}</div></div>
-                  <div><span className="text-muted-foreground text-xs">Mobile</span><div>{review.mobile}</div></div>
-                  <div><span className="text-muted-foreground text-xs">District</span><div>{review.district ?? "—"}</div></div>
-                </div>
-              </div>
-              <div className="bg-muted/30 rounded-xl p-4 text-sm space-y-2">
-                <div><span className="text-muted-foreground text-xs">Insurance Scheme</span><div className="font-semibold">{review.schemeName}</div></div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div><span className="text-muted-foreground text-xs">Crop</span><div>{review.crop ?? "—"}</div></div>
-                  <div><span className="text-muted-foreground text-xs">Land (Acres)</span><div>{review.land ?? "—"}</div></div>
-                  <div><span className="text-muted-foreground text-xs">Filed</span><div>{timeAgo(review.appliedAt)}</div></div>
-                </div>
-              </div>
-              {review.lossDescription && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm">
-                  <div className="text-xs font-semibold text-red-700 mb-1">Loss Description</div>
-                  <p className="text-red-900">{review.lossDescription}</p>
-                </div>
-              )}
-              {review.documentRefs && review.documentRefs.length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm">
-                  <div className="text-xs font-semibold text-blue-700 mb-2">📎 Documents Submitted by Farmer</div>
-                  <div className="flex flex-wrap gap-2">
-                    {review.documentRefs.map(ref => (
-                      <span key={ref} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
-                        ✅ {DOC_LABEL[ref] ?? ref}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold">Current Status</span>
-                <StatusBadge status={review.status}/>
-              </div>
-              <div>
-                <label className="text-sm font-semibold mb-2 block">Officer Notes</label>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-xl h-24 resize-none focus:outline-none focus:ring-2 focus:ring-secondary/30"
-                  placeholder="Add assessment notes…"/>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {review.status === "Pending" && (
-                  <button disabled={saving} onClick={() => updateStatus(review.applicationId, "Under Review", notes)}
-                    className="text-sm px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">🔍 Under Review</button>
-                )}
-                {(review.status === "Pending" || review.status === "Under Review") && (
-                  <button disabled={saving} onClick={() => updateStatus(review.applicationId, "Approved", notes)}
-                    className="text-sm px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60">✅ Approve</button>
-                )}
-                {review.status === "Approved" && (
-                  <button disabled={saving} onClick={() => updateStatus(review.applicationId, "Settled", notes)}
-                    className="text-sm px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60">💰 Settle Claim</button>
-                )}
-                {review.status !== "Rejected" && review.status !== "Settled" && (
-                  <button disabled={saving} onClick={() => updateStatus(review.applicationId, "Rejected", notes)}
-                    className="text-sm px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60">❌ Reject</button>
-                )}
-                <button onClick={() => setReview(null)} className="text-sm px-4 py-2 rounded-lg bg-muted hover:bg-muted/80">Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
