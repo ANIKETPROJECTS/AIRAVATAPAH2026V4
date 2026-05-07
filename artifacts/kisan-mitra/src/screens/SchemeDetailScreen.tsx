@@ -230,20 +230,25 @@ export default function SchemeDetailScreen() {
 
     setApplying(true);
     try {
-      const app = await api.applyForScheme({
-        type: appType,
-        farmerId: farmer.farmerId,
-        farmerName: farmer.name ?? null,
-        mobile,
-        district: farmer.district ?? null,
-        village: farmer.village ?? null,
-        schemeId: item.id,
-        schemeName: item.name,
-        schemeType: isScheme ? sch?.type ?? null : ins?.type ?? null,
-        crop: farmer.crop ?? null,
-        land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
-        documentRefs: docIds,
-      });
+      let app: Application;
+      if (submittedApp?.status === 'Rejected') {
+        app = await api.reapplyApplication(submittedApp.applicationId);
+      } else {
+        app = await api.applyForScheme({
+          type: appType,
+          farmerId: farmer.farmerId,
+          farmerName: farmer.name ?? null,
+          mobile,
+          district: farmer.district ?? null,
+          village: farmer.village ?? null,
+          schemeId: item.id,
+          schemeName: item.name,
+          schemeType: isScheme ? sch?.type ?? null : ins?.type ?? null,
+          crop: farmer.crop ?? null,
+          land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
+          documentRefs: docIds,
+        });
+      }
       setSubmittedApp(app);
       Alert.alert(
         t('Submitted! ✅', 'आवेदन सफल! ✅', 'अर्ज यशस्वी! ✅'),

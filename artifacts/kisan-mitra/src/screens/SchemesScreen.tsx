@@ -190,6 +190,10 @@ export default function SchemesScreen() {
     }, [refreshApplications]),
   );
 
+  const handleManualRefresh = useCallback(() => {
+    handlePullRefresh();
+  }, [handlePullRefresh]);
+
   const getApplicationForItem = (itemId: string, type: 'scheme' | 'subsidy' | 'insurance'): Application | undefined =>
     myApplications.find(a => a.type === type && (a.schemeId === itemId || a.schemeName === itemId));
 
@@ -295,21 +299,31 @@ export default function SchemesScreen() {
     if (!mobile) return;
     setApplying(itemId);
     try {
-      const app = await api.applyForScheme({
-        type,
-        farmerId: farmer.farmerId,
-        farmerName: farmer.name ?? null,
-        mobile,
-        district: farmer.district ?? null,
-        village: farmer.village ?? null,
-        schemeId: itemId,
-        schemeName: itemName,
-        schemeType: itemType ?? null,
-        crop: farmer.crop ?? null,
-        land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
-        documentRefs: docIds,
-      });
-      setMyApplications(prev => [...prev, app]);
+      const rejectedApp = myApplications.find(
+        a => a.type === type && (a.schemeId === itemId || a.schemeName === itemName) && a.status === 'Rejected',
+      );
+      let app: Application;
+      if (rejectedApp) {
+        app = await api.reapplyApplication(rejectedApp.applicationId);
+        setMyApplications(prev => prev.map(a => a.applicationId === app.applicationId ? app : a));
+      } else {
+        app = await api.applyForScheme({
+          type,
+          farmerId: farmer.farmerId,
+          farmerName: farmer.name ?? null,
+          mobile,
+          district: farmer.district ?? null,
+          village: farmer.village ?? null,
+          schemeId: itemId,
+          schemeName: itemName,
+          schemeType: itemType ?? null,
+          crop: farmer.crop ?? null,
+          land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
+          documentRefs: docIds,
+        });
+        setMyApplications(prev => [...prev, app]);
+      }
+      setStatusModal(null);
       setSuccessModal({ schemeName: itemName, applicationId: app.applicationId });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed';
@@ -471,6 +485,9 @@ export default function SchemesScreen() {
           <Text style={styles.topBarTitle}>कृषी सुविधा</Text>
           <Text style={styles.topBarSub}>{t('availableSchemes')}</Text>
         </View>
+        <TouchableOpacity onPress={handleManualRefresh} style={styles.refreshBtn} activeOpacity={0.7} disabled={refreshing}>
+          <Text style={[styles.refreshBtnText, refreshing && { opacity: 0.4 }]}>↻</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.headerBar}>
@@ -886,9 +903,11 @@ export default function SchemesScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
-  topBar: { backgroundColor: COLORS.primaryDark, paddingHorizontal: 20, paddingVertical: 14 },
+  topBar: { backgroundColor: COLORS.primaryDark, paddingHorizontal: 20, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   topBarTitle: { fontSize: FONT_SIZE.base, fontWeight: '800', color: COLORS.gold },
   topBarSub: { fontSize: FONT_SIZE.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  refreshBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  refreshBtnText: { color: '#fff', fontSize: 20, fontWeight: '700', lineHeight: 22 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   emptyIconBox: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.primaryLight },
   emptyIcon: { fontSize: 40 },

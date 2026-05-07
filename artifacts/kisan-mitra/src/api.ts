@@ -223,6 +223,12 @@ export const api = {
   getMyApplications: (mobile: string) =>
     request<Application[]>(`/applications?mobile=${encodeURIComponent(mobile)}`),
 
+  reapplyApplication: (applicationId: string) =>
+    request<Application>(`/applications/${encodeURIComponent(applicationId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'Pending', adminReply: null, adminNotes: null }),
+    }),
+
   applyForScheme: (data: {
     type: 'scheme' | 'subsidy' | 'insurance';
     farmerId: string;
