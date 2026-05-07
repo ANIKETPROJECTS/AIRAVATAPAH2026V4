@@ -1,12 +1,18 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
-  Search, Users, Loader2, AlertCircle, BadgeCheck, BarChart3,
-  AlertTriangle, Ticket, Filter, RefreshCw, MapPin,
-  Shield, ChevronLeft, Hash, Activity, FileText,
+  Search, Users, Loader2, AlertCircle, BadgeCheck,
+  Filter, RefreshCw, MapPin,
+  Shield, ChevronLeft, FileText, LifeBuoy, IndianRupee,
 } from "lucide-react";
 import { apiFetchFarmers, type FarmerRecord } from "@/data/farmerApi";
 import VerifiedFarmerCard from "@/components/modules/VerifiedFarmerCard";
-import { SchemesPage, GrievancesPage, TicketsPage, DocumentsPage, TimelinePage } from "@/components/modules/FarmerSubPages";
+import {
+  SchemeApplicationsPage,
+  InsuranceApplicationsPage,
+  SubsidyApplicationsPage,
+  GrievancesPage,
+  DocumentsPage,
+} from "@/components/modules/FarmerSubPages";
 
 /* ─── helpers ─── */
 function formatLandHAR(val: number | string | undefined): string {
@@ -16,11 +22,6 @@ function formatLandHAR(val: number | string | undefined): string {
   if (parts.length === 3) return `${parts[0]} हे. ${parts[1]} आर. ${parts[2]} चौ.मी.`;
   if (parts.length === 2) return parts[1] === "0" || parts[1] === "00" ? `${parts[0]} हे.` : `${parts[0]} हे. ${parts[1]} आर.`;
   return `${s} हे.`;
-}
-function landToHectares(val: number | string | undefined): number {
-  if (!val) return 0;
-  const parts = String(val).trim().split(".");
-  return parseFloat(parts[0] || "0") + parseFloat(parts[1] || "0") / 100 + parseFloat(parts[2] || "0") / 10000;
 }
 
 const AVATAR_GRADIENTS = [
@@ -36,37 +37,21 @@ const AVATAR_GRADIENTS = [
 function farmerGradient(id: string) {
   return AVATAR_GRADIENTS[parseInt(id.replace(/\D/g, "") || "0") % AVATAR_GRADIENTS.length];
 }
-function schemeCount(f: FarmerRecord) {
-  const ha = landToHectares(f.land);
-  const hasBank = !!(f.bankAccount && f.bankAccount !== "—" && f.bankAccount.length > 4);
-  let c = 0;
-  if (ha > 0 && ha <= 2 && hasBank) c += 2;
-  if (ha > 0) c += 3;
-  if (ha > 0 && hasBank) c++;
-  if (ha >= 0.5) c++;
-  if (ha >= 0.6) c++;
-  if (ha >= 0.4) c++;
-  return Math.min(c, 10);
-}
 
 /* ─── sub-page metadata ─── */
-type SubPageKey = "schemes" | "grievances" | "tickets" | "documents" | "timeline";
+type SubPageKey = "scheme_apps" | "insurance_apps" | "subsidy_apps" | "grievances" | "documents";
 const SUB_PAGE_META: Record<SubPageKey, { label: string; icon: React.ReactNode }> = {
-  schemes:    { label: "Scheme Portfolio",    icon: <Shield className="h-4 w-4"/> },
-  grievances: { label: "Grievances",          icon: <AlertTriangle className="h-4 w-4"/> },
-  tickets:    { label: "Support Tickets",     icon: <Ticket className="h-4 w-4"/> },
-  documents:  { label: "Documents",           icon: <FileText className="h-4 w-4"/> },
-  timeline:   { label: "Activity Timeline",   icon: <Activity className="h-4 w-4"/> },
+  scheme_apps:    { label: "Scheme Applications",    icon: <Shield className="h-4 w-4" /> },
+  insurance_apps: { label: "Insurance Applications", icon: <LifeBuoy className="h-4 w-4" /> },
+  subsidy_apps:   { label: "Subsidy Applications",   icon: <IndianRupee className="h-4 w-4" /> },
+  grievances:     { label: "Grievances",             icon: <AlertCircle className="h-4 w-4" /> },
+  documents:      { label: "Documents",              icon: <FileText className="h-4 w-4" /> },
 };
 
 /* ─── Compact card (grid item) ─── */
 function CompactFarmerCard({ farmer, onClick }: { farmer: FarmerRecord; onClick: () => void }) {
   const initials = farmer.name.trim().split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   const grad = farmerGradient(farmer.farmerId);
-  const eligible = schemeCount(farmer);
-  const seed = parseInt(farmer.farmerId.replace(/\D/g, "") || "1") % 100;
-  const openGrievances = seed < 30 ? 3 : seed < 60 ? 2 : 1;
-  const openTickets = seed < 40 ? 3 : seed < 70 ? 2 : 1;
   const regDate = new Date(farmer.addedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
   return (
@@ -86,6 +71,9 @@ function CompactFarmerCard({ farmer, onClick }: { farmer: FarmerRecord; onClick:
             </span>
             {farmer.source === "ocr" && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-semibold border border-teal-200">AI-OCR</span>
+            )}
+            {farmer.source === "mobile_ocr" && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-semibold border border-teal-200">Mobile OCR</span>
             )}
             {farmer.source === "manual" && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold border border-green-200">Manual</span>
@@ -112,17 +100,13 @@ function CompactFarmerCard({ farmer, onClick }: { farmer: FarmerRecord; onClick:
           </div>
         </div>
 
-        <div className="flex gap-1.5 flex-wrap mb-3">
-          <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 font-semibold">
-            <Shield className="h-2.5 w-2.5" />{eligible} Schemes
-          </span>
-          <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border ${openGrievances > 0 ? "bg-lime-50 text-lime-700 border-lime-300" : "bg-muted/30 text-muted-foreground border-border"}`}>
-            <AlertTriangle className="h-2.5 w-2.5" />{openGrievances} GRV
-          </span>
-          <span className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border ${openTickets > 0 ? "bg-green-50 text-green-800 border-green-300" : "bg-muted/30 text-muted-foreground border-border"}`}>
-            <Ticket className="h-2.5 w-2.5" />{openTickets} TKT
-          </span>
-        </div>
+        {farmer.aadhaar && (
+          <div className="flex items-center gap-1.5 mb-3">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 font-mono font-semibold truncate max-w-full">
+              Aadhaar: {farmer.aadhaar.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3")}
+            </span>
+          </div>
+        )}
 
         <div className="pt-3 border-t border-border/50 flex items-center justify-between">
           <span className="text-[10px] text-muted-foreground">Reg: {regDate}</span>
@@ -184,11 +168,11 @@ function SubPageView({ farmer, subPage }: { farmer: FarmerRecord; subPage: SubPa
         </div>
       </div>
       <div className="p-5">
-        {subPage === "schemes"    && <SchemesPage    farmer={farmer}/>}
-        {subPage === "grievances" && <GrievancesPage farmer={farmer}/>}
-        {subPage === "tickets"    && <TicketsPage    farmer={farmer}/>}
-        {subPage === "documents"  && <DocumentsPage  farmer={farmer}/>}
-        {subPage === "timeline"   && <TimelinePage   farmer={farmer}/>}
+        {subPage === "scheme_apps"    && <SchemeApplicationsPage    farmer={farmer} />}
+        {subPage === "insurance_apps" && <InsuranceApplicationsPage farmer={farmer} />}
+        {subPage === "subsidy_apps"   && <SubsidyApplicationsPage   farmer={farmer} />}
+        {subPage === "grievances"     && <GrievancesPage            farmer={farmer} />}
+        {subPage === "documents"      && <DocumentsPage             farmer={farmer} />}
       </div>
     </div>
   );
@@ -219,7 +203,7 @@ function ProfileView({ farmer, onBack, onNavigate }: {
           </span>
         </div>
       </div>
-      <VerifiedFarmerCard farmer={farmer} onNavigate={onNavigate}/>
+      <VerifiedFarmerCard farmer={farmer} onNavigate={onNavigate} />
     </div>
   );
 }
@@ -247,7 +231,6 @@ export default function VerifiedFarmers() {
   }, []);
 
   useEffect(() => { loadFarmers(); }, [loadFarmers]);
-
   useEffect(() => {
     const handler = () => loadFarmers();
     window.addEventListener("farmer-registry-changed", handler);
@@ -263,22 +246,13 @@ export default function VerifiedFarmers() {
   }), [search, distFilter, farmers]);
 
   const selectedFarmer = farmers.find(f => f.farmerId === selectedId) ?? null;
-  const totalEligibleSchemes = farmers.reduce((acc, f) => acc + schemeCount(f), 0);
 
   const handleNavigate = useCallback((key: string) => {
     setSubPage(key as SubPageKey);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
-
-  const handleBackToGrid = useCallback(() => {
-    setSelectedId(null);
-    setSubPage(null);
-  }, []);
-
-  const handleBackToProfile = useCallback(() => {
-    setSubPage(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  const handleBackToGrid = useCallback(() => { setSelectedId(null); setSubPage(null); }, []);
+  const handleBackToProfile = useCallback(() => { setSubPage(null); window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
 
   /* ── Loading ── */
   if (loading) {
@@ -307,13 +281,8 @@ export default function VerifiedFarmers() {
   if (selectedFarmer && subPage) {
     return (
       <div>
-        <Breadcrumb
-          farmer={selectedFarmer}
-          subPage={subPage}
-          onBack={handleBackToGrid}
-          onBackToProfile={handleBackToProfile}
-        />
-        <SubPageView farmer={selectedFarmer} subPage={subPage}/>
+        <Breadcrumb farmer={selectedFarmer} subPage={subPage} onBack={handleBackToGrid} onBackToProfile={handleBackToProfile} />
+        <SubPageView farmer={selectedFarmer} subPage={subPage} />
       </div>
     );
   }
@@ -321,11 +290,7 @@ export default function VerifiedFarmers() {
   /* ── Profile page (level 2) ── */
   if (selectedFarmer) {
     return (
-      <ProfileView
-        farmer={selectedFarmer}
-        onBack={handleBackToGrid}
-        onNavigate={handleNavigate}
-      />
+      <ProfileView farmer={selectedFarmer} onBack={handleBackToGrid} onNavigate={handleNavigate} />
     );
   }
 
@@ -337,9 +302,9 @@ export default function VerifiedFarmers() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { icon: <BadgeCheck className="h-5 w-5 text-emerald-600" />, bg: "bg-emerald-100", value: farmers.length, label: "Verified Farmers" },
-          { icon: <BarChart3 className="h-5 w-5 text-teal-600" />, bg: "bg-teal-100", value: totalEligibleSchemes, label: "Total Scheme Eligibilities" },
-          { icon: <AlertTriangle className="h-5 w-5 text-green-700" />, bg: "bg-green-100", value: farmers.length > 0 ? 2 : 0, label: "Open Grievances" },
-          { icon: <Ticket className="h-5 w-5 text-lime-700" />, bg: "bg-lime-100", value: farmers.length > 0 ? 1 : 0, label: "Open Support Tickets" },
+          { icon: <MapPin className="h-5 w-5 text-teal-600" />, bg: "bg-teal-100", value: districts.length, label: "Districts Covered" },
+          { icon: <Shield className="h-5 w-5 text-green-700" />, bg: "bg-green-100", value: farmers.filter(f => f.source === "ocr" || f.source === "mobile_ocr").length, label: "AI-OCR Registered" },
+          { icon: <FileText className="h-5 w-5 text-lime-700" />, bg: "bg-lime-100", value: farmers.filter(f => f.docs && f.docs.length > 0).length, label: "With Documents" },
         ].map(s => (
           <div key={s.label} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full ${s.bg} flex items-center justify-center flex-shrink-0`}>{s.icon}</div>
