@@ -65,4 +65,98 @@ router.patch("/schemes/:id/status", async (req, res): Promise<void> => {
   }
 });
 
+router.post("/schemes", async (req, res): Promise<void> => {
+  try {
+    const db = getDb();
+    const { name, type, category, description, benefits, status, eligibility, documents, validationRules, approvalRules } = req.body as Record<string, unknown>;
+
+    if (!name || typeof name !== "string" || !name.trim()) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    if (type !== "CENTRAL" && type !== "STATE") {
+      res.status(400).json({ error: "type must be CENTRAL or STATE" });
+      return;
+    }
+
+    const id = (name as string)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .substring(0, 60);
+
+    const existing = await db.collection("schemes").findOne({ id });
+    if (existing) {
+      res.status(409).json({ error: "A scheme with this name already exists" });
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const scheme = {
+      id,
+      name: (name as string).trim(),
+      type,
+      state: null,
+      category: (category as string) || "",
+      description: (description as string) || "",
+      eligibility: eligibility || { summary: "", parameters: [], familyCriteria: [] },
+      documents: (documents as string[]) || [],
+      validationRules: (validationRules as string[]) || [],
+      approvalRules: (approvalRules as object) || { approve: [], reject: [] },
+      benefits: (benefits as string) || "",
+      status: status === "Closed" ? "Closed" : "Active",
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await db.collection("schemes").insertOne(scheme);
+    const inserted = await db.collection("schemes").findOne({ id }, { projection: { _id: 0 } });
+    res.status(201).json(inserted);
+  } catch (err) {
+    logger.error({ err }, "Failed to create scheme");
+    res.status(500).json({ error: "Failed to create scheme" });
+  }
+});
+
+router.patch("/schemes/:id", async (req, res): Promise<void> => {
+  try {
+    const db = getDb();
+    const allowed = ["name", "type", "category", "description", "benefits", "status", "eligibility", "documents", "validationRules", "approvalRules"];
+    const update: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) update[key] = req.body[key];
+    }
+
+    const result = await db.collection("schemes").findOneAndUpdate(
+      { id: req.params.id },
+      { $set: update },
+      { returnDocument: "after", projection: { _id: 0 } }
+    );
+    if (!result) {
+      res.status(404).json({ error: "Scheme not found" });
+      return;
+    }
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, "Failed to update scheme");
+    res.status(500).json({ error: "Failed to update scheme" });
+  }
+});
+
+router.delete("/schemes/:id", async (req, res): Promise<void> => {
+  try {
+    const db = getDb();
+    const result = await db.collection("schemes").findOneAndDelete({ id: req.params.id });
+    if (!result) {
+      res.status(404).json({ error: "Scheme not found" });
+      return;
+    }
+    res.json({ success: true, id: req.params.id });
+  } catch (err) {
+    logger.error({ err }, "Failed to delete scheme");
+    res.status(500).json({ error: "Failed to delete scheme" });
+  }
+});
+
 export default router;

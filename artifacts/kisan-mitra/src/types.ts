@@ -64,6 +64,9 @@ export interface Scheme {
   ministry?: string;
   eligibility?: string | SchemeEligibilityObject;
   category?: string;
+  documents?: string[];
+  validationRules?: string[];
+  approvalRules?: { approve: string[]; reject: string[] };
 }
 
 export type DocumentTypeId = 'aadhar' | 'bank_passbook' | 'form7' | 'form12' | 'form8a';
@@ -164,10 +167,13 @@ export interface InsuranceSubsidy {
   name: string;
   type: 'Insurance' | 'Subsidy';
   region: 'Central' | 'Maharashtra';
-  status: 'Active' | 'Closed';
+  status?: 'Active' | 'Closed';
   description?: string;
   benefit?: string;
   eligibility?: string;
+  parameters?: string;
+  features?: string;
+  criteria?: string;
   deadline?: string;
   crops?: string[];
   minLand?: number;

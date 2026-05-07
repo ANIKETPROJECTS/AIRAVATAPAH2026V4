@@ -20,6 +20,160 @@ interface Scheme {
 
 const PAGE_SIZE = 10;
 
+/* ═══════════ CRUD API Helpers ════════════ */
+async function apiCreateScheme(data: Partial<Scheme>): Promise<Scheme> {
+  const res = await fetch("/api/schemes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "Failed to create");
+  return json as Scheme;
+}
+async function apiUpdateScheme(id: string, data: Partial<Scheme>): Promise<Scheme> {
+  const res = await fetch(`/api/schemes/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "Failed to update");
+  return json as Scheme;
+}
+async function apiDeleteScheme(id: string): Promise<void> {
+  const res = await fetch(`/api/schemes/${id}`, { method: "DELETE" });
+  if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error((j as {error?:string}).error || "Failed to delete"); }
+}
+
+/* ═══════════ Scheme Form Modal ════════════ */
+function SchemeFormModal({ scheme, onClose, onSaved }: { scheme?: Scheme | null; onClose: () => void; onSaved: (s: Scheme) => void }) {
+  const isEdit = !!scheme;
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [name, setName] = useState(scheme?.name ?? "");
+  const [type, setType] = useState<"CENTRAL" | "STATE">(scheme?.type ?? "CENTRAL");
+  const [category, setCategory] = useState(scheme?.category ?? "");
+  const [description, setDescription] = useState(scheme?.description ?? "");
+  const [benefits, setBenefits] = useState(scheme?.benefits ?? "");
+  const [status, setStatus] = useState<"Active" | "Closed">(scheme?.status ?? "Active");
+  const [eligSummary, setEligSummary] = useState(typeof scheme?.eligibility === "object" ? (scheme?.eligibility?.summary ?? "") : (scheme?.eligibility ?? ""));
+  const [eligCriteria, setEligCriteria] = useState(typeof scheme?.eligibility === "object" ? (scheme?.eligibility?.familyCriteria ?? []).join("\n") : "");
+  const [documents, setDocuments] = useState((scheme?.documents ?? []).join("\n"));
+  const [approveRules, setApproveRules] = useState((scheme?.approvalRules?.approve ?? []).join("\n"));
+  const [rejectRules, setRejectRules] = useState((scheme?.approvalRules?.reject ?? []).join("\n"));
+
+  const splitLines = (s: string) => s.split("\n").map(l => l.trim()).filter(Boolean);
+
+  const handleSubmit = async () => {
+    if (!name.trim()) { setErr("Scheme name is required"); return; }
+    setSaving(true); setErr(null);
+    try {
+      const payload = {
+        name: name.trim(), type, category, description, benefits, status,
+        eligibility: { summary: eligSummary, familyCriteria: splitLines(eligCriteria), parameters: typeof scheme?.eligibility === "object" ? (scheme?.eligibility?.parameters ?? []) : [] },
+        documents: splitLines(documents),
+        approvalRules: { approve: splitLines(approveRules), reject: splitLines(rejectRules) },
+      };
+      const saved = isEdit ? await apiUpdateScheme(scheme!.id, payload) : await apiCreateScheme(payload);
+      onSaved(saved);
+    } catch (e) { setErr((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30";
+  const labelCls = "block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1";
+  const selectCls = `${inputCls} cursor-pointer`;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+          <h2 className="font-heading text-base font-semibold">{isEdit ? `Edit: ${scheme!.name}` : "Add New Scheme"}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground text-lg leading-none">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className={labelCls}>Scheme Name *</label>
+              <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. PM-KISAN"/>
+            </div>
+            <div>
+              <label className={labelCls}>Type</label>
+              <select className={selectCls} value={type} onChange={e => setType(e.target.value as "CENTRAL"|"STATE")}>
+                <option value="CENTRAL">🏛 Central Government</option>
+                <option value="STATE">🏠 Maharashtra State</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Status</label>
+              <select className={selectCls} value={status} onChange={e => setStatus(e.target.value as "Active"|"Closed")}>
+                <option value="Active">✅ Active</option>
+                <option value="Closed">⛔ Closed</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Category</label>
+              <input className={inputCls} value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. Income Support, Loan / Credit"/>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Description</label>
+            <textarea className={`${inputCls} resize-none`} rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description of the scheme"/>
+          </div>
+          <div>
+            <label className={labelCls}>Benefits</label>
+            <textarea className={`${inputCls} resize-none`} rows={2} value={benefits} onChange={e => setBenefits(e.target.value)} placeholder="e.g. ₹6,000/year in 3 instalments..."/>
+          </div>
+          <div>
+            <label className={labelCls}>Eligibility Summary</label>
+            <textarea className={`${inputCls} resize-none`} rows={2} value={eligSummary} onChange={e => setEligSummary(e.target.value)} placeholder="Who is eligible for this scheme?"/>
+          </div>
+          <div>
+            <label className={labelCls}>Eligibility Criteria <span className="normal-case font-normal">(one per line)</span></label>
+            <textarea className={`${inputCls} resize-none`} rows={3} value={eligCriteria} onChange={e => setEligCriteria(e.target.value)} placeholder="Must be a registered farmer&#10;Land holding > 0&#10;Valid Aadhaar"/>
+          </div>
+          <div>
+            <label className={labelCls}>Required Documents <span className="normal-case font-normal">(one per line)</span></label>
+            <textarea className={`${inputCls} resize-none`} rows={3} value={documents} onChange={e => setDocuments(e.target.value)} placeholder="Aadhaar Card&#10;Bank Passbook&#10;Land Records (7/12)"/>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Approve When <span className="normal-case font-normal">(one per line)</span></label>
+              <textarea className={`${inputCls} resize-none`} rows={3} value={approveRules} onChange={e => setApproveRules(e.target.value)} placeholder="Valid land ownership&#10;Bank account linked"/>
+            </div>
+            <div>
+              <label className={labelCls}>Reject When <span className="normal-case font-normal">(one per line)</span></label>
+              <textarea className={`${inputCls} resize-none`} rows={3} value={rejectRules} onChange={e => setRejectRules(e.target.value)} placeholder="Duplicate application&#10;Ineligible crop"/>
+            </div>
+          </div>
+          {err && <p className="text-xs text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{err}</p>}
+        </div>
+        <div className="flex gap-3 px-6 py-4 border-t border-border flex-shrink-0">
+          <button onClick={onClose} className="flex-1 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors">Cancel</button>
+          <button onClick={handleSubmit} disabled={saving} className="flex-1 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-60 font-semibold">
+            {saving ? "Saving…" : isEdit ? "Save Changes" : "Create Scheme"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════ Delete Confirm Modal ════════════ */
+function DeleteConfirm({ name, onCancel, onConfirm, loading }: { name: string; onCancel: () => void; onConfirm: () => void; loading: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 border border-border space-y-4">
+        <div className="text-center">
+          <div className="text-4xl mb-3">🗑️</div>
+          <h3 className="font-heading text-base font-semibold">Delete Scheme?</h3>
+          <p className="text-sm text-muted-foreground mt-1">This will permanently remove <span className="font-semibold text-foreground">"{name}"</span> from the database.</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 py-2 text-sm rounded-lg border border-border hover:bg-muted transition-colors">Cancel</button>
+          <button onClick={onConfirm} disabled={loading} className="flex-1 py-2 text-sm rounded-lg bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity disabled:opacity-60 font-semibold">
+            {loading ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════ Eligibility Engine ════════════ */
 function getLandHectares(land: number | string | undefined): number {
   if (!land) return 0;
@@ -629,22 +783,24 @@ function SchemeDetailPage({ scheme, onBack, onStatusChange }: {
 }
 
 /* ═══════════ Table Row (list view) ════════════ */
-function TableRow({ scheme, onView, onStatusChange }: { scheme: Scheme; onView: () => void; onStatusChange: (id: string, s: "Active" | "Closed") => void }) {
+function TableRow({ scheme, onView, onStatusChange, onEdit, onDelete }: { scheme: Scheme; onView: () => void; onStatusChange: (id: string, s: "Active" | "Closed") => void; onEdit: (s: Scheme) => void; onDelete: (s: Scheme) => void }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <>
       <tr className="border-t border-border/50 hover:bg-success/5 transition-colors cursor-pointer">
-        <td className="px-4 py-3 w-[30%]">
+        <td className="px-4 py-3 w-[28%]">
           <button onClick={onView} className="font-medium text-sm text-left hover:text-primary transition-colors leading-snug">{scheme.name}</button>
         </td>
-        <td className="px-4 py-3 w-[10%] align-middle"><TypeBadge type={scheme.type} compact/></td>
-        <td className="px-4 py-3 w-[14%] align-middle"><span className="text-xs text-muted-foreground font-medium">{scheme.category}</span></td>
-        <td className="px-4 py-3 w-[26%]"><p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{scheme.eligibility.summary}</p></td>
+        <td className="px-4 py-3 w-[9%] align-middle"><TypeBadge type={scheme.type} compact/></td>
+        <td className="px-4 py-3 w-[13%] align-middle"><span className="text-xs text-muted-foreground font-medium">{scheme.category}</span></td>
+        <td className="px-4 py-3 w-[24%]"><p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{typeof scheme.eligibility === "object" ? scheme.eligibility.summary : scheme.eligibility}</p></td>
         <td className="px-4 py-3 w-[9%] align-middle"><StatusToggle schemeId={scheme.id} status={scheme.status} onToggle={onStatusChange}/></td>
-        <td className="px-4 py-3 w-[11%] align-middle">
-          <div className="flex gap-1.5 items-center">
-            <button onClick={onView} className="text-xs px-2.5 py-1 rounded bg-primary text-primary-foreground hover:opacity-80 transition-opacity whitespace-nowrap">Details</button>
-            <button onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }} className="p-1 rounded bg-muted hover:bg-muted/80 transition-colors flex-shrink-0" title="Toggle eligibility">
+        <td className="px-4 py-3 w-[17%] align-middle">
+          <div className="flex gap-1 items-center flex-wrap">
+            <button onClick={onView} className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground hover:opacity-80 transition-opacity whitespace-nowrap">Details</button>
+            <button onClick={(e) => { e.stopPropagation(); onEdit(scheme); }} className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors whitespace-nowrap">Edit</button>
+            <button onClick={(e) => { e.stopPropagation(); onDelete(scheme); }} className="text-xs px-2 py-1 rounded bg-red-100 text-red-600 hover:bg-red-200 transition-colors whitespace-nowrap">Delete</button>
+            <button onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }} className="p-1 rounded bg-muted hover:bg-muted/80 transition-colors flex-shrink-0" title="Toggle">
               {expanded ? <ChevronUp className="h-3.5 w-3.5"/> : <ChevronDown className="h-3.5 w-3.5"/>}
             </button>
           </div>
@@ -675,7 +831,7 @@ function TableRow({ scheme, onView, onStatusChange }: { scheme: Scheme; onView: 
 }
 
 /* ═══════════ Grid Card ════════════ */
-function GridCard({ scheme, onView }: { scheme: Scheme; onView: () => void }) {
+function GridCard({ scheme, onView, onEdit, onDelete }: { scheme: Scheme; onView: () => void; onEdit: (s: Scheme) => void; onDelete: (s: Scheme) => void }) {
   return (
     <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between gap-2">
@@ -690,9 +846,13 @@ function GridCard({ scheme, onView }: { scheme: Scheme; onView: () => void }) {
       <div className="bg-secondary/10 rounded-lg p-2.5">
         <p className="text-xs font-medium leading-relaxed">{scheme.benefits}</p>
       </div>
-      <button onClick={onView} className="text-sm px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity mt-auto font-semibold flex items-center justify-center gap-2">
-        <FileText className="h-3.5 w-3.5"/> View Full Details
-      </button>
+      <div className="flex gap-2 mt-auto">
+        <button onClick={onView} className="flex-1 text-sm px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-semibold flex items-center justify-center gap-1.5">
+          <FileText className="h-3.5 w-3.5"/> Details
+        </button>
+        <button onClick={() => onEdit(scheme)} className="text-sm px-3 py-2 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors font-medium">Edit</button>
+        <button onClick={() => onDelete(scheme)} className="text-sm px-3 py-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors font-medium">Del</button>
+      </div>
     </div>
   );
 }
@@ -707,11 +867,35 @@ export default function AllSchemes() {
   const [typeFilter, setTypeFilter] = useState<"ALL" | "CENTRAL" | "STATE">("ALL");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Scheme | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editScheme, setEditScheme] = useState<Scheme | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Scheme | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleStatusChange = useCallback((id: string, status: "Active" | "Closed") => {
     setSchemes(prev => prev.map(s => s.id === id ? { ...s, status } : s));
     setSelected(prev => prev?.id === id ? { ...prev, status } : prev);
   }, []);
+
+  const handleSaved = useCallback((saved: Scheme) => {
+    setSchemes(prev => {
+      const idx = prev.findIndex(s => s.id === saved.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = saved; return next; }
+      return [saved, ...prev];
+    });
+    setShowForm(false); setEditScheme(null);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiDeleteScheme(deleteTarget.id);
+      setSchemes(prev => prev.filter(s => s.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (e) { alert((e as Error).message); }
+    finally { setDeleting(false); }
+  }, [deleteTarget]);
 
   useEffect(() => {
     setLoading(true); setError(null);
@@ -770,6 +954,9 @@ export default function AllSchemes() {
           <button onClick={() => setView("table")} className={`p-1.5 rounded-md transition-colors ${view === "table" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`} title="Table view"><LayoutList className="h-4 w-4"/></button>
           <button onClick={() => setView("grid")} className={`p-1.5 rounded-md transition-colors ${view === "grid" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"}`} title="Grid view"><LayoutGrid className="h-4 w-4"/></button>
         </div>
+        <button onClick={() => { setEditScheme(null); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-semibold whitespace-nowrap">
+          + Add Scheme
+        </button>
       </div>
 
       <div className="flex gap-3 flex-wrap">
@@ -804,7 +991,7 @@ export default function AllSchemes() {
                 </tr>
               </thead>
               <tbody>
-                {pageData.map(s => <TableRow key={s.id} scheme={s} onView={() => setSelected(s)} onStatusChange={handleStatusChange}/>)}
+                {pageData.map(s => <TableRow key={s.id} scheme={s} onView={() => setSelected(s)} onStatusChange={handleStatusChange} onEdit={s => { setEditScheme(s); setShowForm(true); }} onDelete={s => setDeleteTarget(s)}/>)}
               </tbody>
             </table>
           </div>
@@ -822,7 +1009,7 @@ export default function AllSchemes() {
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {pageData.map(s => <GridCard key={s.id} scheme={s} onView={() => setSelected(s)}/>)}
+            {pageData.map(s => <GridCard key={s.id} scheme={s} onView={() => setSelected(s)} onEdit={s => { setEditScheme(s); setShowForm(true); }} onDelete={s => setDeleteTarget(s)}/>)}
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">Page {safePage + 1} of {totalPages} · {filtered.length} schemes</span>
@@ -836,6 +1023,8 @@ export default function AllSchemes() {
           </div>
         </div>
       )}
+      {showForm && <SchemeFormModal scheme={editScheme} onClose={() => { setShowForm(false); setEditScheme(null); }} onSaved={handleSaved}/>}
+      {deleteTarget && <DeleteConfirm name={deleteTarget.name} onCancel={() => setDeleteTarget(null)} onConfirm={handleDeleteConfirm} loading={deleting}/>}
     </div>
   );
 }
