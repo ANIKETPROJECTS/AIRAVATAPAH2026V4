@@ -13,6 +13,65 @@ function generateId(type: AppType): string {
   return `${prefix}-${ts.toString(36).toUpperCase()}-${rand}`;
 }
 
+function typeLabel(type: AppType): string {
+  return type === "scheme" ? "Scheme" : type === "insurance" ? "Insurance" : "Subsidy";
+}
+
+async function sendNotification(opts: {
+  mobile?: string | null;
+  farmerId?: string | null;
+  type: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const db = getDb();
+    const notificationId = `NOTIF-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const notification = {
+      notificationId,
+      mobile: opts.mobile ?? null,
+      farmerId: opts.farmerId ?? null,
+      type: opts.type,
+      title: opts.title,
+      body: opts.body,
+      data: opts.data ?? {},
+      read: false,
+      readAt: null,
+      createdAt: new Date().toISOString(),
+    };
+
+    const filter: Record<string, unknown> = {};
+    if (opts.mobile) filter["mobile"] = opts.mobile;
+    else if (opts.farmerId) filter["farmerId"] = opts.farmerId;
+    else return;
+
+    await db.collection("farmers").updateOne(
+      filter,
+      { $push: { notifications: notification } } as Record<string, unknown>
+    );
+
+    if (opts.mobile) {
+      const tokenDoc = await db.collection("push_tokens").findOne({ mobile: opts.mobile });
+      if (tokenDoc?.["pushToken"]) {
+        await fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: tokenDoc["pushToken"],
+            title: opts.title,
+            body: opts.body,
+            data: { type: opts.type, ...opts.data },
+            sound: "default",
+          }),
+        }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "Failed to send application notification (non-fatal)");
+  }
+}
+
 router.get("/applications", async (req, res): Promise<void> => {
   try {
     const db = getDb();
@@ -93,6 +152,16 @@ router.post("/applications", async (req, res): Promise<void> => {
     };
     await db.collection("applications").insertOne(application);
     const { _id: _, ...clean } = application as typeof application & { _id?: unknown };
+
+    await sendNotification({
+      mobile,
+      farmerId,
+      type: "application_submitted",
+      title: `${typeLabel(type)} Application Submitted ✅`,
+      body: `Your application for "${schemeName}" has been received and is pending review. ID: ${applicationId}`,
+      data: { applicationId, schemeName, appType: type },
+    });
+
     res.status(201).json(clean);
   } catch (err) {
     logger.error({ err }, "Failed to create application");
@@ -122,6 +191,56 @@ router.patch("/applications/:id", async (req, res): Promise<void> => {
       { returnDocument: "after", projection: { _id: 0 } }
     );
     if (!result) { res.status(404).json({ error: "Application not found" }); return; }
+
+    const app = result as Record<string, unknown>;
+    const mobile = app["mobile"] as string | null;
+    const farmerId = app["farmerId"] as string | null;
+    const schemeName = app["schemeName"] as string;
+    const appType = app["type"] as AppType;
+    const applicationId = app["applicationId"] as string;
+
+    if (status && mobile) {
+      const notifMap: Record<string, { title: string; body: string; type: string }> = {
+        "Pending": {
+          type: "application_resubmitted",
+          title: `Application Re-submitted 🔄`,
+          body: `Your re-application for "${schemeName}" is now pending review. ID: ${applicationId}`,
+        },
+        "Under Review": {
+          type: "application_under_review",
+          title: `Application Under Review 🔍`,
+          body: `Your ${typeLabel(appType).toLowerCase()} application for "${schemeName}" is now under review by the district officer.`,
+        },
+        "Approved": {
+          type: "application_approved",
+          title: `Application Approved ✅`,
+          body: `Congratulations! Your ${typeLabel(appType).toLowerCase()} application for "${schemeName}" has been approved.`,
+        },
+        "Rejected": {
+          type: "application_rejected",
+          title: `Application Rejected ❌`,
+          body: `Your ${typeLabel(appType).toLowerCase()} application for "${schemeName}" has been rejected. You may re-apply or contact the office.`,
+        },
+        "Settled": {
+          type: "claim_settled",
+          title: `Claim Settled 💰`,
+          body: `Your insurance claim for "${schemeName}" has been settled. Funds will be transferred to your registered bank account.`,
+        },
+      };
+
+      const notif = notifMap[status];
+      if (notif) {
+        await sendNotification({
+          mobile,
+          farmerId,
+          type: notif.type,
+          title: notif.title,
+          body: notif.body,
+          data: { applicationId, schemeName, appType },
+        });
+      }
+    }
+
     res.json(result);
   } catch (err) {
     logger.error({ err }, "Failed to update application");
