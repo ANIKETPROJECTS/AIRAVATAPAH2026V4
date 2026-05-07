@@ -364,19 +364,28 @@ export default function SchemesScreen() {
   }
 
   function getEligibilityCategory(item: Scheme | InsuranceSubsidy, itemTab: Tab): EligibilityFilter {
-    const hasCrop = crop && crop !== '—';
-    const hasLand = land !== undefined && land !== '—' && !isNaN(parseFloat(String(land)));
-    if (itemTab === 'schemes') {
-      const eligible = isEligibleScheme(item as Scheme, crop, land);
-      if (eligible) return 'ELIGIBLE';
-      if (!hasCrop && !hasLand) return 'PARTIAL';
-      return 'NOT_ELIGIBLE';
-    } else {
-      const eligible = isEligibleItem(item as InsuranceSubsidy, crop, land);
-      if (eligible) return 'ELIGIBLE';
-      if (!hasCrop && !hasLand) return 'PARTIAL';
-      return 'NOT_ELIGIBLE';
-    }
+    const isVerified = farmer?.status === 'Active' || farmer?.status === 'Verified';
+    const uploadedSections = new Set((farmer?.docs ?? []).map(d => d.section));
+    const hasBankAccount = !!(farmer?.bankAccount && farmer.bankAccount !== '—');
+
+    const requiredDocIds = getRequiredDocIds(item, itemTab);
+    const allDocsUploaded = requiredDocIds.every(id => uploadedSections.has(id));
+
+    const cropLandEligible = itemTab === 'schemes'
+      ? isEligibleScheme(item as Scheme, crop, land)
+      : isEligibleItem(item as InsuranceSubsidy, crop, land);
+
+    // Core non-doc criteria
+    const coreOk = isVerified && cropLandEligible && hasBankAccount;
+
+    // ELIGIBLE: all checks pass including docs
+    if (coreOk && allDocsUploaded) return 'ELIGIBLE';
+
+    // PARTIAL: core criteria are fine but documents are missing
+    if (coreOk && !allDocsUploaded) return 'PARTIAL';
+
+    // NOT_ELIGIBLE: core criteria fail (crop/land mismatch, not verified, or no bank account)
+    return 'NOT_ELIGIBLE';
   }
 
   const filteredSchemes = schemes.filter((s) => {
