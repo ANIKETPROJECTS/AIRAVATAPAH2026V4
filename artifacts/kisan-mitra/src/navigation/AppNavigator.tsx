@@ -20,6 +20,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import GrievanceScreen from '../screens/GrievanceScreen';
 import GrievanceDetailScreen from '../screens/GrievanceDetailScreen';
+import SchemeDetailScreen from '../screens/SchemeDetailScreen';
 
 export type RootStackParamList = {
   Welcome: undefined;
@@ -32,6 +33,7 @@ export type RootStackParamList = {
   Main: undefined;
   Grievance: undefined;
   GrievanceDetail: { grievanceId: string; editMode?: boolean };
+  SchemeDetail: { itemJson: string; tabType: 'schemes' | 'insurance' | 'subsidies'; existingAppJson?: string };
 };
 
 export type TabParamList = {
@@ -190,6 +192,7 @@ export default function AppNavigator() {
             </Stack.Screen>
             <Stack.Screen name="Grievance" component={GrievanceScreen} />
             <Stack.Screen name="GrievanceDetail" component={GrievanceDetailScreen} />
+            <Stack.Screen name="SchemeDetail" component={SchemeDetailScreen} />
           </>
         ) : farmerStatus === 'Pending' && state.farmer?.source === 'manual' ? (
           <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />

@@ -3,10 +3,13 @@ import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   FlatList, TextInput, ActivityIndicator, Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
 import { Scheme, InsuranceSubsidy, Application } from '../types';
+import { RootStackParamList } from '../navigation/AppNavigator';
 
 type SchemeFilter = 'ALL' | 'CENTRAL' | 'STATE';
 type Tab = 'schemes' | 'insurance' | 'subsidies';
@@ -88,6 +91,7 @@ const APP_STATUS_LABEL: Record<string, string> = {
 
 export default function SchemesScreen() {
   const { state } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
   const farmer = state.farmer;
   const crop = farmer?.crop;
@@ -204,14 +208,16 @@ export default function SchemesScreen() {
     ]);
   }
 
-  function handleKnowMore(name: string, description?: string, eligibility?: Scheme['eligibility'], benefit?: string, deadline?: string) {
-    const eligText = formatEligibilityForDisplay(eligibility);
-    Alert.alert(
-      name,
-      [description ?? '', eligText ? `Eligibility: ${eligText}` : '', benefit ? `Benefit: ${benefit}` : '', deadline ? `Deadline: ${deadline}` : '']
-        .filter(Boolean).join('\n\n') || 'No additional information available.',
-      [{ text: 'Close' }],
-    );
+  function handleKnowMore(
+    item: Scheme | InsuranceSubsidy,
+    currentTab: Tab,
+    existingApp?: Application,
+  ) {
+    navigation.navigate('SchemeDetail', {
+      itemJson: JSON.stringify(item),
+      tabType: currentTab,
+      existingAppJson: existingApp ? JSON.stringify(existingApp) : undefined,
+    });
   }
 
   const filteredSchemes = schemes.filter((s) => {
@@ -384,7 +390,7 @@ export default function SchemesScreen() {
                 <View style={styles.cardActions}>
                   <TouchableOpacity
                     style={styles.knowMoreBtn}
-                    onPress={() => handleKnowMore(item.name, item.description, item.eligibility, benefit, item.deadline)}
+                    onPress={() => handleKnowMore(item, tab, existingApp)}
                   >
                     <Text style={styles.knowMoreText}>{t('knowMore')}</Text>
                   </TouchableOpacity>
