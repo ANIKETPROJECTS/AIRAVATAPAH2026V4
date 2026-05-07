@@ -1,14 +1,16 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator, Alert, Modal, Platform,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { COLORS, FONT_SIZE, RADIUS } from '../constants';
-import { Scheme, InsuranceSubsidy, Application } from '../types';
+import { Scheme, InsuranceSubsidy, Application, REQUIRED_DOCUMENTS, DocumentTypeId, DocUploadState } from '../types';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'SchemeDetail'>;
@@ -135,6 +137,16 @@ const APP_STATUS_COLOR: Record<string, string> = {
   Settled: '#0D9488',
 };
 
+function mapSchemeDocToType(docStr: string): DocumentTypeId | null {
+  const d = docStr.toLowerCase();
+  if (d.includes('aadhar') || d.includes('aadhaar') || d.includes('identity') || d.includes('uid')) return 'aadhar';
+  if (d.includes('bank') || d.includes('passbook') || d.includes('account')) return 'bank_passbook';
+  if (d.includes('7/12') || d.includes('form 7') || d.includes('satbara') || d.includes('land record') || d.includes('form7')) return 'form7';
+  if (d.includes('pik pahani') || d.includes('form 12') || d.includes('form12') || d.includes('crop inspection')) return 'form12';
+  if (d.includes('8a') || d.includes('8-a') || d.includes('holding register') || d.includes('form8')) return 'form8a';
+  return null;
+}
+
 export default function SchemeDetailScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteP>();
@@ -174,55 +186,172 @@ export default function SchemeDetailScreen() {
   const rejectRules: string[] = isScheme ? (sch?.approvalRules?.reject ?? []) : [];
   const features: string = ins?.features ?? '';
 
-  const handleApply = useCallback(async () => {
+  // ── Document upload modal state ─────────────────────────────────────────────
+  const [docModal, setDocModal] = useState<{
+    visible: boolean;
+    requiredDocIds: DocumentTypeId[];
+    pendingEligible: boolean;
+    pendingEligibilityText: string;
+  } | null>(null);
+  const [modalDocStates, setModalDocStates] = useState<Record<string, DocUploadState>>({});
+  const pollingRef = useRef<Record<string, boolean>>({});
+
+  function setModalDoc(id: DocumentTypeId, patch: Partial<DocUploadState>) {
+    setModalDocStates(prev => ({ ...prev, [id]: { ...(prev[id] ?? { status: 'idle' }), ...patch } }));
+  }
+
+  async function pollModalDoc(docId: DocumentTypeId, requestId: string) {
+    pollingRef.current[docId] = true;
+    for (let i = 0; i < 60; i++) {
+      if (!pollingRef.current[docId]) break;
+      await new Promise(r => setTimeout(r, 4000));
+      try {
+        const result = await api.pollExtraction(requestId);
+        if (result.status === 'complete') { setModalDoc(docId, { status: 'done' }); pollingRef.current[docId] = false; return; }
+        if (result.status === 'error') { setModalDoc(docId, { status: 'error', error: result.error ?? 'Processing failed' }); pollingRef.current[docId] = false; return; }
+      } catch { /* keep polling */ }
+    }
+    setModalDoc(docId, { status: 'error', error: 'Timed out. Please re-upload.' });
+    pollingRef.current[docId] = false;
+  }
+
+  async function pickAndUploadModalDoc(docId: DocumentTypeId) {
+    const mobile = farmer?.mobile ?? state.mobile;
+    if (!mobile) return;
+    setModalDoc(docId, { status: 'picking', error: undefined });
+    try {
+      let fileUri = '', fileName = `${docId}.pdf`, fileMime = 'application/pdf';
+      if (Platform.OS === 'web') {
+        const result = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: false });
+        if (result.canceled || !result.assets?.[0]) { setModalDoc(docId, { status: 'idle' }); return; }
+        const asset = result.assets[0]; fileUri = asset.uri; fileName = asset.name ?? fileName; fileMime = asset.mimeType ?? fileMime;
+      } else {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) { Alert.alert('Permission needed', 'Please allow access to your photos.'); setModalDoc(docId, { status: 'idle' }); return; }
+        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85, allowsMultipleSelection: false });
+        if (result.canceled || !result.assets?.[0]) { setModalDoc(docId, { status: 'idle' }); return; }
+        const asset = result.assets[0]; fileUri = asset.uri; fileName = `${docId}.jpg`; fileMime = 'image/jpeg';
+      }
+      setModalDoc(docId, { status: 'uploading', fileName });
+      const submitResult = await api.uploadDocument(fileUri, fileName, fileMime, docId, mobile);
+      setModalDoc(docId, { status: 'processing', requestId: submitResult.request_id });
+      pollModalDoc(docId, submitResult.request_id);
+    } catch (err) {
+      setModalDoc(docId, { status: 'error', error: err instanceof Error ? err.message : 'Upload failed.' });
+    }
+  }
+
+  function getRequiredDocIds(): DocumentTypeId[] {
+    if (tabType === 'schemes') {
+      const docs = (item as Scheme).documents ?? [];
+      if (docs.length === 0) return ['aadhar', 'form7'];
+      const mapped = docs.map(mapSchemeDocToType).filter(Boolean) as DocumentTypeId[];
+      return mapped.length > 0 ? mapped : ['aadhar', 'form7'];
+    }
+    return ['aadhar', 'bank_passbook'];
+  }
+
+  function getMissingDocIds(requiredDocIds: DocumentTypeId[]): DocumentTypeId[] {
+    const uploadedSections = new Set((farmer?.docs ?? []).map(d => d.section));
+    return requiredDocIds.filter(id => !uploadedSections.has(id));
+  }
+
+  async function proceedWithApply(docIds: DocumentTypeId[] = []) {
     if (!farmer) return;
     const mobile = farmer.mobile ?? state.mobile;
     if (!mobile) return;
 
-    Alert.alert(
-      t('Confirm Application', 'आवेदन की पुष्टि', 'अर्जाची पुष्टी'),
-      t(`Apply for "${item.name}"?`, `"${item.name}" के लिए आवेदन करें?`, `"${item.name}" साठी अर्ज करायचा आहे का?`),
-      [
-        { text: t('Cancel', 'रद्द करें', 'रद्द करा'), style: 'cancel' },
-        {
-          text: t('Apply Now', 'अभी आवेदन करें', 'आत्ता अर्ज करा'),
-          onPress: async () => {
-            setApplying(true);
-            try {
-              const app = await api.applyForScheme({
-                type: appType,
-                farmerId: farmer.farmerId,
-                farmerName: farmer.name ?? null,
-                mobile,
-                district: farmer.district ?? null,
-                village: farmer.village ?? null,
-                schemeId: item.id,
-                schemeName: item.name,
-                schemeType: isScheme ? sch?.type ?? null : ins?.type ?? null,
-                crop: farmer.crop ?? null,
-                land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
-              });
-              setSubmittedApp(app);
-              Alert.alert(
-                t('Submitted! 🎉', 'आवेदन सफल! 🎉', 'अर्ज यशस्वी! 🎉'),
-                t(`Application submitted.\nApp ID: ${app.applicationId}`, `आवेदन सफलतापूर्वक जमा हुआ.\nID: ${app.applicationId}`, `अर्ज यशस्वीरित्या सादर झाला.\nID: ${app.applicationId}`),
-                [{ text: 'OK' }],
-              );
-            } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : 'Failed';
-              if (msg.includes('Already applied')) {
-                Alert.alert(t('Already Applied', 'पहले से आवेदन', 'आधीच अर्ज'), t('You have already applied.', 'आप पहले से आवेदन कर चुके हैं।', 'तुम्ही आधीच अर्ज केला आहे.'), [{ text: 'OK' }]);
-              } else {
-                Alert.alert(t('Error', 'त्रुटि', 'चूक'), t('Could not submit. Try again.', 'आवेदन नहीं हो सका।', 'अर्ज होऊ शकला नाही.'), [{ text: 'OK' }]);
-              }
-            } finally {
-              setApplying(false);
+    const applyLabel = t('Apply', 'आवेदन करें', 'अर्ज करा');
+    const confirmMsg = t(`Apply for "${item.name}"?`, `"${item.name}" के लिए आवेदन करें?`, `"${item.name}" साठी अर्ज करायचा आहे का?`);
+
+    Alert.alert(applyLabel, confirmMsg, [
+      { text: t('Cancel', 'रद्द करें', 'रद्द करा'), style: 'cancel' },
+      {
+        text: t('Apply Now', 'अभी आवेदन करें', 'आत्ता अर्ज करा'),
+        onPress: async () => {
+          setApplying(true);
+          try {
+            const app = await api.applyForScheme({
+              type: appType,
+              farmerId: farmer.farmerId,
+              farmerName: farmer.name ?? null,
+              mobile,
+              district: farmer.district ?? null,
+              village: farmer.village ?? null,
+              schemeId: item.id,
+              schemeName: item.name,
+              schemeType: isScheme ? sch?.type ?? null : ins?.type ?? null,
+              crop: farmer.crop ?? null,
+              land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
+              documentRefs: docIds,
+            });
+            setSubmittedApp(app);
+            Alert.alert(
+              t('Submitted! 🎉', 'आवेदन सफल! 🎉', 'अर्ज यशस्वी! 🎉'),
+              t(
+                `Application submitted.\nApp ID: ${app.applicationId}`,
+                `आवेदन सफलतापूर्वक जमा हुआ.\nID: ${app.applicationId}`,
+                `अर्ज यशस्वीरित्या सादर झाला.\nID: ${app.applicationId}`,
+              ),
+              [{ text: 'OK' }],
+            );
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Failed';
+            if (msg.includes('Already applied')) {
+              Alert.alert(t('Already Applied', 'पहले से आवेदन', 'आधीच अर्ज'), t('You have already applied.', 'आप पहले से आवेदन कर चुके हैं।', 'तुम्ही आधीच अर्ज केला आहे.'), [{ text: 'OK' }]);
+            } else {
+              Alert.alert(t('Error', 'त्रुटि', 'चूक'), t('Could not submit. Try again.', 'आवेदन नहीं हो सका।', 'अर्ज होऊ शकला नाही.'), [{ text: 'OK' }]);
             }
-          },
+          } finally {
+            setApplying(false);
+          }
         },
-      ],
-    );
-  }, [farmer, state.mobile, item, appType]);
+      },
+    ]);
+  }
+
+  const handleApply = useCallback(() => {
+    if (!farmer) return;
+
+    const requiredDocIds = getRequiredDocIds();
+    const missingDocIds = getMissingDocIds(requiredDocIds);
+
+    // If missing required documents → open upload modal
+    if (missingDocIds.length > 0) {
+      const initStates: Record<string, DocUploadState> = {};
+      requiredDocIds.forEach(id => {
+        const alreadyUploaded = (farmer.docs ?? []).some(d => d.section === id);
+        initStates[id] = { status: alreadyUploaded ? 'done' : 'idle' };
+      });
+      setModalDocStates(initStates);
+      setDocModal({
+        visible: true,
+        requiredDocIds,
+        pendingEligible: eligibility.eligible,
+        pendingEligibilityText: eligSummary,
+      });
+      return;
+    }
+
+    // If not eligible → show warning but allow applying anyway
+    if (!eligibility.eligible) {
+      Alert.alert(
+        t('Eligibility Notice', 'पात्रता नोटिस', 'पात्रता सूचना'),
+        t(
+          `You may not fully meet the eligibility criteria.\n\nYou can still apply — the district officer will review your case.`,
+          `आप पूरी तरह पात्र नहीं हो सकते।\n\nफिर भी आवेदन किया जा सकता है — अधिकारी समीक्षा करेंगे।`,
+          `तुम्ही पूर्णपणे पात्र नसाल.\n\nतरीही अर्ज करता येतो — अधिकारी आढावा घेतील.`,
+        ),
+        [
+          { text: t('Cancel', 'रद्द करें', 'रद्द करा'), style: 'cancel' },
+          { text: t('Apply Anyway', 'फिर भी आवेदन करें', 'तरीही अर्ज करा'), onPress: () => proceedWithApply(requiredDocIds) },
+        ],
+      );
+      return;
+    }
+
+    proceedWithApply(requiredDocIds);
+  }, [farmer, state.mobile, item, appType, eligibility, eligSummary]);
 
   const eligColor = eligibility.eligible ? COLORS.primary : eligibility.score >= 40 ? COLORS.gold : COLORS.error;
   const eligBg = eligibility.eligible ? COLORS.primaryBg : eligibility.score >= 40 ? '#FEF3C7' : '#FEE2E2';
@@ -503,6 +632,118 @@ export default function SchemeDetailScreen() {
           </View>
         </View>
       )}
+
+      {/* Document Upload Modal */}
+      {docModal && (
+        <Modal visible={docModal.visible} animationType="slide" transparent onRequestClose={() => setDocModal(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle}>
+                    {lang === 'hi' ? 'दस्तावेज़ अपलोड करें' : lang === 'mr' ? 'कागदपत्रे अपलोड करा' : 'Upload Required Documents'}
+                  </Text>
+                  <Text style={styles.modalSubtitle} numberOfLines={1}>{item.name}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setDocModal(null)} style={styles.modalClose}>
+                  <Text style={styles.modalCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalNote}>
+                {lang === 'hi'
+                  ? 'नीचे दिए गए दस्तावेज़ इस योजना के लिए आवश्यक हैं। सभी अपलोड करने के बाद आवेदन करें।'
+                  : lang === 'mr'
+                  ? 'खालील कागदपत्रे या योजनेसाठी आवश्यक आहेत. सर्व अपलोड केल्यानंतर अर्ज करा.'
+                  : 'The following documents are required for this scheme. Upload any missing ones, then proceed to apply.'}
+              </Text>
+
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                {docModal.requiredDocIds.map(docId => {
+                  const docDef = REQUIRED_DOCUMENTS.find(d => d.id === docId);
+                  if (!docDef) return null;
+                  const ds = modalDocStates[docId] ?? { status: 'idle' };
+                  const isDone = ds.status === 'done';
+                  const isWorking = ds.status === 'uploading' || ds.status === 'processing' || ds.status === 'picking';
+                  const docLabel = lang === 'hi' ? docDef.labelHi : lang === 'mr' ? docDef.labelMr : docDef.label;
+
+                  return (
+                    <View key={docId} style={[styles.modalDocCard, isDone && styles.modalDocCardDone]}>
+                      <View style={styles.modalDocLeft}>
+                        <Text style={styles.modalDocIcon}>{docDef.icon}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.modalDocLabel}>{docLabel}</Text>
+                          {ds.status === 'error' && <Text style={styles.modalDocError}>{ds.error}</Text>}
+                          {ds.status === 'uploading' && <Text style={styles.modalDocStatus}>Uploading…</Text>}
+                          {ds.status === 'processing' && <Text style={[styles.modalDocStatus, { color: COLORS.gold }]}>Processing…</Text>}
+                          {isDone && <Text style={[styles.modalDocStatus, { color: COLORS.primary }]}>
+                            {lang === 'hi' ? '✓ अपलोड हो गया' : lang === 'mr' ? '✓ अपलोड झाले' : '✓ Uploaded'}
+                          </Text>}
+                        </View>
+                      </View>
+                      {isDone ? (
+                        <View style={styles.modalDocDoneBadge}>
+                          <Text style={styles.modalDocDoneText}>✓</Text>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={[styles.modalUploadBtn, isWorking && { opacity: 0.6 }]}
+                          disabled={isWorking}
+                          onPress={() => pickAndUploadModalDoc(docId)}
+                        >
+                          {isWorking
+                            ? <ActivityIndicator size="small" color={COLORS.white} />
+                            : <Text style={styles.modalUploadText}>
+                                {lang === 'hi' ? 'अपलोड' : lang === 'mr' ? 'अपलोड' : 'Upload'}
+                              </Text>
+                          }
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                {(() => {
+                  const allDone = docModal.requiredDocIds.every(id => (modalDocStates[id]?.status ?? 'idle') === 'done');
+                  const anyUploaded = docModal.requiredDocIds.some(id => (modalDocStates[id]?.status ?? 'idle') === 'done');
+                  return (
+                    <TouchableOpacity
+                      style={[styles.modalApplyBtn, !anyUploaded && styles.modalApplyBtnDisabled]}
+                      disabled={!anyUploaded}
+                      onPress={() => {
+                        const uploadedDocIds = docModal.requiredDocIds.filter(id => (modalDocStates[id]?.status ?? 'idle') === 'done');
+                        setDocModal(null);
+                        if (!allDone && !docModal.pendingEligible) {
+                          Alert.alert(
+                            lang === 'hi' ? 'पात्रता नोटिस' : lang === 'mr' ? 'पात्रता सूचना' : 'Eligibility Notice',
+                            lang === 'hi'
+                              ? 'आप पूरी तरह पात्र नहीं हो सकते, फिर भी आवेदन जमा किया जाएगा।'
+                              : lang === 'mr'
+                              ? 'तुम्ही पूर्णपणे पात्र नसाल, तरीही अर्ज सादर केला जाईल.'
+                              : 'You may not fully qualify, but your application will be submitted for review.',
+                            [
+                              { text: lang === 'hi' ? 'रद्द करें' : lang === 'mr' ? 'रद्द करा' : 'Cancel', style: 'cancel' },
+                              { text: lang === 'hi' ? 'आवेदन करें' : lang === 'mr' ? 'अर्ज करा' : 'Apply', onPress: () => proceedWithApply(uploadedDocIds) },
+                            ],
+                          );
+                        } else {
+                          proceedWithApply(uploadedDocIds);
+                        }
+                      }}
+                    >
+                      <Text style={styles.modalApplyText}>
+                        {lang === 'hi' ? 'आवेदन करें' : lang === 'mr' ? 'अर्ज करा' : 'Apply Now'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -589,4 +830,29 @@ const styles = StyleSheet.create({
   applySubText: { fontSize: FONT_SIZE.xs, color: 'rgba(255,255,255,0.75)' },
   closedBar: { borderRadius: RADIUS.lg, paddingVertical: 14, alignItems: 'center', backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: COLORS.border },
   closedBarText: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.textMuted },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '85%', paddingBottom: 24 },
+  modalHeader: { flexDirection: 'row', alignItems: 'flex-start', padding: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  modalTitle: { fontSize: FONT_SIZE.base, fontWeight: '900', color: COLORS.text },
+  modalSubtitle: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, marginTop: 2 },
+  modalClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center', marginLeft: 12, marginTop: 2 },
+  modalCloseText: { fontSize: 14, color: COLORS.textMuted, fontWeight: '700' },
+  modalNote: { fontSize: FONT_SIZE.sm, color: COLORS.textSecondary, lineHeight: 20, paddingHorizontal: 20, paddingVertical: 12, backgroundColor: COLORS.primaryBg, borderBottomWidth: 1, borderBottomColor: COLORS.primaryLight },
+  modalScroll: { maxHeight: 320 },
+  modalDocCard: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  modalDocCardDone: { backgroundColor: '#F0FDF4' },
+  modalDocLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  modalDocIcon: { fontSize: 28 },
+  modalDocLabel: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.text },
+  modalDocStatus: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, marginTop: 2 },
+  modalDocError: { fontSize: FONT_SIZE.xs, color: COLORS.error, marginTop: 2 },
+  modalDocDoneBadge: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  modalDocDoneText: { color: COLORS.white, fontWeight: '900', fontSize: 16 },
+  modalUploadBtn: { backgroundColor: COLORS.primaryDark, paddingHorizontal: 16, paddingVertical: 8, borderRadius: RADIUS.md, minWidth: 72, alignItems: 'center', justifyContent: 'center' },
+  modalUploadText: { color: COLORS.white, fontSize: FONT_SIZE.xs, fontWeight: '800' },
+  modalFooter: { paddingHorizontal: 20, paddingTop: 16 },
+  modalApplyBtn: { backgroundColor: COLORS.primaryDark, paddingVertical: 14, borderRadius: RADIUS.md, alignItems: 'center' },
+  modalApplyBtnDisabled: { backgroundColor: COLORS.border },
+  modalApplyText: { color: COLORS.white, fontSize: FONT_SIZE.base, fontWeight: '900' },
 });

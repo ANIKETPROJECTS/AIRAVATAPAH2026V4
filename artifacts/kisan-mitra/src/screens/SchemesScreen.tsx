@@ -14,6 +14,7 @@ import { Scheme, InsuranceSubsidy, Application, REQUIRED_DOCUMENTS, DocumentType
 import { RootStackParamList, TabParamList } from '../navigation/AppNavigator';
 
 type SchemeFilter = 'ALL' | 'CENTRAL' | 'STATE';
+type EligibilityFilter = 'ALL' | 'ELIGIBLE' | 'PARTIAL' | 'NOT_ELIGIBLE';
 type Tab = 'schemes' | 'insurance' | 'subsidies';
 
 function getEligibilityText(eligibility: Scheme['eligibility']): string {
@@ -107,6 +108,12 @@ export default function SchemesScreen() {
     if (routeInitialTab) setTab(routeInitialTab);
   }, [routeInitialTab]);
 
+  useEffect(() => {
+    setEligFilter('ALL');
+    setFilter('ALL');
+    setSearch('');
+  }, [tab]);
+
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [insuranceItems, setInsuranceItems] = useState<InsuranceSubsidy[]>([]);
   const [subsidyItems, setSubsidyItems] = useState<InsuranceSubsidy[]>([]);
@@ -114,6 +121,7 @@ export default function SchemesScreen() {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState<string | null>(null);
   const [filter, setFilter] = useState<SchemeFilter>('ALL');
+  const [eligFilter, setEligFilter] = useState<EligibilityFilter>('ALL');
   const [search, setSearch] = useState('');
 
   const loadData = useCallback(async () => {
@@ -355,17 +363,38 @@ export default function SchemesScreen() {
     });
   }
 
+  function getEligibilityCategory(item: Scheme | InsuranceSubsidy, itemTab: Tab): EligibilityFilter {
+    const hasCrop = crop && crop !== '—';
+    const hasLand = land !== undefined && land !== '—' && !isNaN(parseFloat(String(land)));
+    if (itemTab === 'schemes') {
+      const eligible = isEligibleScheme(item as Scheme, crop, land);
+      if (eligible) return 'ELIGIBLE';
+      if (!hasCrop && !hasLand) return 'PARTIAL';
+      return 'NOT_ELIGIBLE';
+    } else {
+      const eligible = isEligibleItem(item as InsuranceSubsidy, crop, land);
+      if (eligible) return 'ELIGIBLE';
+      if (!hasCrop && !hasLand) return 'PARTIAL';
+      return 'NOT_ELIGIBLE';
+    }
+  }
+
   const filteredSchemes = schemes.filter((s) => {
     if (filter !== 'ALL' && s.type !== filter) return false;
     if (search && !s.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (eligFilter !== 'ALL' && getEligibilityCategory(s, 'schemes') !== eligFilter) return false;
     return true;
   });
-  const filteredInsurance = insuranceItems.filter((s) =>
-    !search || s.name.toLowerCase().includes(search.toLowerCase())
-  );
-  const filteredSubsidies = subsidyItems.filter((s) =>
-    !search || s.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredInsurance = insuranceItems.filter((s) => {
+    if (search && !s.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (eligFilter !== 'ALL' && getEligibilityCategory(s, 'insurance') !== eligFilter) return false;
+    return true;
+  });
+  const filteredSubsidies = subsidyItems.filter((s) => {
+    if (search && !s.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (eligFilter !== 'ALL' && getEligibilityCategory(s, 'subsidies') !== eligFilter) return false;
+    return true;
+  });
 
   const displayBenefit = (scheme: Scheme) => scheme.benefit ?? scheme.benefits ?? '';
 
@@ -379,6 +408,33 @@ export default function SchemesScreen() {
     { id: 'ALL',     label: 'All' },
     { id: 'CENTRAL', label: t('centralScheme') },
     { id: 'STATE',   label: t('stateScheme') },
+  ];
+
+  const ELIGIBILITY_FILTERS: { id: EligibilityFilter; label: string; icon: string; color: string }[] = [
+    {
+      id: 'ALL',
+      label: state.lang === 'hi' ? 'सभी' : state.lang === 'mr' ? 'सर्व' : 'All',
+      icon: '📋',
+      color: COLORS.primaryDark,
+    },
+    {
+      id: 'ELIGIBLE',
+      label: state.lang === 'hi' ? 'पात्र' : state.lang === 'mr' ? 'पात्र' : 'Eligible',
+      icon: '✅',
+      color: '#16A34A',
+    },
+    {
+      id: 'PARTIAL',
+      label: state.lang === 'hi' ? 'आंशिक' : state.lang === 'mr' ? 'आंशिक' : 'Partial',
+      icon: '⚠️',
+      color: '#D97706',
+    },
+    {
+      id: 'NOT_ELIGIBLE',
+      label: state.lang === 'hi' ? 'अपात्र' : state.lang === 'mr' ? 'अपात्र' : 'Not Eligible',
+      icon: '❌',
+      color: '#DC2626',
+    },
   ];
 
   if (loading) {
@@ -448,9 +504,27 @@ export default function SchemesScreen() {
                 <Text style={[styles.filterText, filter === f.id && styles.filterTextActive]}>{f.label}</Text>
               </TouchableOpacity>
             ))}
-            <Text style={styles.countText}>{filteredSchemes.length} {state.lang === 'hi' ? 'योजनाएं' : state.lang === 'mr' ? 'योजना' : 'found'}</Text>
+            <Text style={styles.countText}>{filteredSchemes.length} {state.lang === 'hi' ? 'मिले' : state.lang === 'mr' ? 'मिळाले' : 'found'}</Text>
           </View>
         )}
+
+        <View style={styles.eligFilterRow}>
+          {ELIGIBILITY_FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f.id}
+              style={[styles.eligFilterBtn, eligFilter === f.id && { ...styles.eligFilterBtnActive, backgroundColor: f.color, borderColor: f.color }]}
+              onPress={() => setEligFilter(f.id)}
+            >
+              <Text style={[styles.eligFilterText, eligFilter === f.id && styles.eligFilterTextActive]}>{f.icon} {f.label}</Text>
+            </TouchableOpacity>
+          ))}
+          {tab !== 'schemes' && (
+            <Text style={styles.countText}>
+              {tab === 'insurance' ? filteredInsurance.length : filteredSubsidies.length}
+              {' '}{state.lang === 'hi' ? 'मिले' : state.lang === 'mr' ? 'मिळाले' : 'found'}
+            </Text>
+          )}
+        </View>
       </View>
 
       {currentItems.length === 0 ? (
@@ -708,12 +782,17 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.background, borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 1, borderColor: COLORS.border, marginBottom: 8 },
   searchIcon: { fontSize: 14 },
   search: { flex: 1, fontSize: FONT_SIZE.base, color: COLORS.text, paddingVertical: 6 },
-  filterRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  filterRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 6 },
   filterBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
   filterBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   filterText: { fontSize: FONT_SIZE.xs, fontWeight: '700', color: COLORS.textSecondary },
   filterTextActive: { color: COLORS.white },
   countText: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, marginLeft: 'auto', fontWeight: '600' },
+  eligFilterRow: { flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
+  eligFilterBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: RADIUS.full, backgroundColor: COLORS.background, borderWidth: 1.5, borderColor: COLORS.border },
+  eligFilterBtnActive: { borderWidth: 1.5 },
+  eligFilterText: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary },
+  eligFilterTextActive: { color: COLORS.white },
   list: { padding: 16, gap: 12 },
   card: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: 16, ...SHADOW.sm, borderWidth: 1.5, borderColor: COLORS.border },
   cardClosed: { opacity: 0.65 },
