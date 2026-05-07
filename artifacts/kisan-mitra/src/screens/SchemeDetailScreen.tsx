@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   ScrollView, ActivityIndicator, Alert, Modal, Platform,
@@ -108,6 +108,17 @@ export default function SchemeDetailScreen() {
 
   const [applying, setApplying] = useState(false);
   const [submittedApp, setSubmittedApp] = useState<Application | null>(existingApp);
+
+  useEffect(() => {
+    const mobile = farmer?.mobile ?? state.mobile;
+    if (!mobile) return;
+    api.getMyApplications(mobile).then((apps) => {
+      const fresh = apps.find(
+        (a) => a.type === appType && (a.schemeId === item.id || a.schemeName === item.name),
+      );
+      if (fresh) setSubmittedApp(fresh);
+    }).catch(() => { /* keep existing */ });
+  }, [farmer?.mobile, state.mobile, item.id, item.name, appType]);
 
   const lang = state.lang;
   const t = (en: string, hi: string, mr: string) => lang === 'hi' ? hi : lang === 'mr' ? mr : en;

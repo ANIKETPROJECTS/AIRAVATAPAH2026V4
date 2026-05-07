@@ -3,7 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   FlatList, TextInput, ActivityIndicator, Alert, Modal, ScrollView, Platform,
 } from 'react-native';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -135,6 +135,7 @@ export default function SchemesScreen() {
   const [subsidyItems, setSubsidyItems] = useState<InsuranceSubsidy[]>([]);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [applying, setApplying] = useState<string | null>(null);
   const [filter, setFilter] = useState<SchemeFilter>('ALL');
   const [eligFilter, setEligFilter] = useState<EligibilityFilter>('ALL');
@@ -163,7 +164,31 @@ export default function SchemesScreen() {
     }
   }, [farmer?.mobile, state.mobile]);
 
+  const refreshApplications = useCallback(async () => {
+    const mobile = farmer?.mobile ?? state.mobile;
+    if (!mobile) return;
+    try {
+      const appsRes = await api.getMyApplications(mobile);
+      setMyApplications(appsRes);
+    } catch { /* silent — keep existing data */ }
+  }, [farmer?.mobile, state.mobile]);
+
+  const handlePullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadData]);
+
   useEffect(() => { loadData(); }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshApplications();
+    }, [refreshApplications]),
+  );
 
   const getApplicationForItem = (itemId: string, type: 'scheme' | 'subsidy' | 'insurance'): Application | undefined =>
     myApplications.find(a => a.type === type && (a.schemeId === itemId || a.schemeName === itemId));
@@ -522,6 +547,8 @@ export default function SchemesScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={handlePullRefresh}
           renderItem={({ item }) => {
             const appType: 'scheme' | 'subsidy' | 'insurance' = tab === 'schemes' ? 'scheme' : tab === 'insurance' ? 'insurance' : 'subsidy';
             const existingApp = getApplicationForItem(item.id, appType);
