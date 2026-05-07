@@ -486,7 +486,7 @@ export default function SchemesScreen() {
           <Text style={styles.topBarSub}>{t('availableSchemes')}</Text>
         </View>
         <TouchableOpacity onPress={handleManualRefresh} style={styles.refreshBtn} activeOpacity={0.7} disabled={refreshing}>
-          <Text style={[styles.refreshBtnText, refreshing && { opacity: 0.4 }]}>↻</Text>
+          <Text style={[styles.refreshBtnText, refreshing && { opacity: 0.4 }]}>🔄</Text>
         </TouchableOpacity>
       </View>
 
