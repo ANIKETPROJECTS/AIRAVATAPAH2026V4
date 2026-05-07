@@ -250,56 +250,43 @@ export default function SchemesScreen() {
     if (!farmer) return;
     const mobile = farmer.mobile ?? state.mobile;
     if (!mobile) return;
-    const applyLabel = state.lang === 'hi' ? 'आवेदन करें' : state.lang === 'mr' ? 'अर्ज करा' : 'Apply';
-    const confirmMsg = state.lang === 'hi'
-      ? `क्या आप "${itemName}" के लिए आवेदन करना चाहते हैं?`
-      : state.lang === 'mr' ? `तुम्हाला "${itemName}" साठी अर्ज करायचा आहे का?`
-      : `Submit application for "${itemName}"?`;
-    Alert.alert(applyLabel, confirmMsg, [
-      { text: state.lang === 'hi' ? 'रद्द करें' : state.lang === 'mr' ? 'रद्द करा' : 'Cancel', style: 'cancel' },
-      {
-        text: applyLabel,
-        onPress: async () => {
-          setApplying(itemId);
-          try {
-            const app = await api.applyForScheme({
-              type,
-              farmerId: farmer.farmerId,
-              farmerName: farmer.name ?? null,
-              mobile,
-              district: farmer.district ?? null,
-              village: farmer.village ?? null,
-              schemeId: itemId,
-              schemeName: itemName,
-              schemeType: itemType ?? null,
-              crop: farmer.crop ?? null,
-              land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
-              documentRefs: docIds,
-            });
-            setMyApplications(prev => [...prev, app]);
-            Alert.alert(
-              state.lang === 'hi' ? 'आवेदन सफल!' : state.lang === 'mr' ? 'अर्ज यशस्वी!' : 'Application Submitted! ✅',
-              state.lang === 'hi'
-                ? `"${itemName}" के लिए आवेदन सफलतापूर्वक जमा किया गया।\nID: ${app.applicationId}`
-                : state.lang === 'mr'
-                ? `"${itemName}" साठी अर्ज यशस्वीरित्या सादर केला गेला.\nID: ${app.applicationId}`
-                : `Your application for "${itemName}" has been submitted and is now visible to the administration.\n\nApp ID: ${app.applicationId}`,
-              [{ text: 'OK' }],
-            );
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Failed';
-            if (msg.includes('Already applied')) {
-              Alert.alert('Already Applied', 'You have already submitted an application for this scheme.', [{ text: 'OK' }]);
-              await loadData();
-            } else {
-              Alert.alert('Error', 'Could not submit application. Please try again.', [{ text: 'OK' }]);
-            }
-          } finally {
-            setApplying(null);
-          }
-        },
-      },
-    ]);
+    setApplying(itemId);
+    try {
+      const app = await api.applyForScheme({
+        type,
+        farmerId: farmer.farmerId,
+        farmerName: farmer.name ?? null,
+        mobile,
+        district: farmer.district ?? null,
+        village: farmer.village ?? null,
+        schemeId: itemId,
+        schemeName: itemName,
+        schemeType: itemType ?? null,
+        crop: farmer.crop ?? null,
+        land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
+        documentRefs: docIds,
+      });
+      setMyApplications(prev => [...prev, app]);
+      Alert.alert(
+        state.lang === 'hi' ? 'आवेदन सफल! ✅' : state.lang === 'mr' ? 'अर्ज यशस्वी! ✅' : 'Application Submitted! ✅',
+        state.lang === 'hi'
+          ? `"${itemName}" के लिए आवेदन सफलतापूर्वक जमा किया गया।\nID: ${app.applicationId}`
+          : state.lang === 'mr'
+          ? `"${itemName}" साठी अर्ज यशस्वीरित्या सादर केला गेला.\nID: ${app.applicationId}`
+          : `Your application for "${itemName}" has been submitted.\n\nApp ID: ${app.applicationId}`,
+        [{ text: 'OK' }],
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed';
+      if (msg.includes('Already applied')) {
+        Alert.alert('Already Applied', 'You have already submitted an application for this scheme.', [{ text: 'OK' }]);
+        await loadData();
+      } else {
+        Alert.alert('Error', 'Could not submit application. Please try again.', [{ text: 'OK' }]);
+      }
+    } finally {
+      setApplying(null);
+    }
   }
 
   async function handleApply(
@@ -335,21 +322,6 @@ export default function SchemesScreen() {
         pendingEligible: eligible ?? true,
         pendingEligibilityText: eligibilityText ?? '',
       });
-      return;
-    }
-
-    // If not eligible for crop/land reasons → show informational warning but allow to apply anyway
-    if (eligible === false) {
-      const notEligibleTitle = state.lang === 'hi' ? 'पात्रता नोटिस' : state.lang === 'mr' ? 'पात्रता सूचना' : 'Eligibility Notice';
-      const notEligibleMsg = state.lang === 'hi'
-        ? `आप "${itemName}" के लिए पूरी तरह पात्र नहीं हो सकते।\n\n${eligibilityText ? `शर्त: ${eligibilityText}` : 'आपकी फसल या जमीन इस योजना की शर्तें पूरी नहीं करती।'}\n\nफिर भी आवेदन किया जा सकता है — अधिकारी समीक्षा करेंगे।`
-        : state.lang === 'mr'
-        ? `तुम्ही "${itemName}" साठी पूर्णपणे पात्र नसाल.\n\n${eligibilityText ? `अट: ${eligibilityText}` : 'तुमची पीक किंवा जमीन या योजनेच्या अटी पूर्ण करत नाही.'}\n\nतरीही अर्ज करता येतो — अधिकारी आढावा घेतील.`
-        : `You may not fully meet the eligibility criteria for "${itemName}".\n\n${eligibilityText ? `Criteria: ${eligibilityText}` : 'Your crop type or land holding may not match the scheme requirements.'}\n\nYou can still apply — the district officer will review your case.`;
-      Alert.alert(notEligibleTitle, notEligibleMsg, [
-        { text: state.lang === 'hi' ? 'रद्द करें' : state.lang === 'mr' ? 'रद्द करा' : 'Cancel', style: 'cancel' },
-        { text: state.lang === 'hi' ? 'फिर भी आवेदन करें' : state.lang === 'mr' ? 'तरीही अर्ज करा' : 'Apply Anyway', onPress: () => proceedWithApply(type, itemId, itemName, itemType, requiredDocIds) },
-      ]);
       return;
     }
 

@@ -215,53 +215,42 @@ export default function SchemeDetailScreen() {
     const mobile = farmer.mobile ?? state.mobile;
     if (!mobile) return;
 
-    const applyLabel = t('Apply', 'आवेदन करें', 'अर्ज करा');
-    const confirmMsg = t(`Apply for "${item.name}"?`, `"${item.name}" के लिए आवेदन करें?`, `"${item.name}" साठी अर्ज करायचा आहे का?`);
-
-    Alert.alert(applyLabel, confirmMsg, [
-      { text: t('Cancel', 'रद्द करें', 'रद्द करा'), style: 'cancel' },
-      {
-        text: t('Apply Now', 'अभी आवेदन करें', 'आत्ता अर्ज करा'),
-        onPress: async () => {
-          setApplying(true);
-          try {
-            const app = await api.applyForScheme({
-              type: appType,
-              farmerId: farmer.farmerId,
-              farmerName: farmer.name ?? null,
-              mobile,
-              district: farmer.district ?? null,
-              village: farmer.village ?? null,
-              schemeId: item.id,
-              schemeName: item.name,
-              schemeType: isScheme ? sch?.type ?? null : ins?.type ?? null,
-              crop: farmer.crop ?? null,
-              land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
-              documentRefs: docIds,
-            });
-            setSubmittedApp(app);
-            Alert.alert(
-              t('Submitted! 🎉', 'आवेदन सफल! 🎉', 'अर्ज यशस्वी! 🎉'),
-              t(
-                `Application submitted.\nApp ID: ${app.applicationId}`,
-                `आवेदन सफलतापूर्वक जमा हुआ.\nID: ${app.applicationId}`,
-                `अर्ज यशस्वीरित्या सादर झाला.\nID: ${app.applicationId}`,
-              ),
-              [{ text: 'OK' }],
-            );
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'Failed';
-            if (msg.includes('Already applied')) {
-              Alert.alert(t('Already Applied', 'पहले से आवेदन', 'आधीच अर्ज'), t('You have already applied.', 'आप पहले से आवेदन कर चुके हैं।', 'तुम्ही आधीच अर्ज केला आहे.'), [{ text: 'OK' }]);
-            } else {
-              Alert.alert(t('Error', 'त्रुटि', 'चूक'), t('Could not submit. Try again.', 'आवेदन नहीं हो सका।', 'अर्ज होऊ शकला नाही.'), [{ text: 'OK' }]);
-            }
-          } finally {
-            setApplying(false);
-          }
-        },
-      },
-    ]);
+    setApplying(true);
+    try {
+      const app = await api.applyForScheme({
+        type: appType,
+        farmerId: farmer.farmerId,
+        farmerName: farmer.name ?? null,
+        mobile,
+        district: farmer.district ?? null,
+        village: farmer.village ?? null,
+        schemeId: item.id,
+        schemeName: item.name,
+        schemeType: isScheme ? sch?.type ?? null : ins?.type ?? null,
+        crop: farmer.crop ?? null,
+        land: farmer.land != null ? parseFloat(String(farmer.land)) : null,
+        documentRefs: docIds,
+      });
+      setSubmittedApp(app);
+      Alert.alert(
+        t('Submitted! ✅', 'आवेदन सफल! ✅', 'अर्ज यशस्वी! ✅'),
+        t(
+          `Application submitted.\nApp ID: ${app.applicationId}`,
+          `आवेदन सफलतापूर्वक जमा हुआ.\nID: ${app.applicationId}`,
+          `अर्ज यशस्वीरित्या सादर झाला.\nID: ${app.applicationId}`,
+        ),
+        [{ text: 'OK' }],
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed';
+      if (msg.includes('Already applied')) {
+        Alert.alert(t('Already Applied', 'पहले से आवेदन', 'आधीच अर्ज'), t('You have already applied.', 'आप पहले से आवेदन कर चुके हैं।', 'तुम्ही आधीच अर्ज केला आहे.'), [{ text: 'OK' }]);
+      } else {
+        Alert.alert(t('Error', 'त्रुटि', 'चूक'), t('Could not submit. Try again.', 'आवेदन नहीं हो सका।', 'अर्ज होऊ शकला नाही.'), [{ text: 'OK' }]);
+      }
+    } finally {
+      setApplying(false);
+    }
   }
 
   const handleApply = useCallback(() => {
@@ -284,23 +273,6 @@ export default function SchemeDetailScreen() {
         pendingEligible: eligibility.eligible,
         pendingEligibilityText: eligSummary,
       });
-      return;
-    }
-
-    // If not eligible → show warning but allow applying anyway
-    if (!eligibility.eligible) {
-      Alert.alert(
-        t('Eligibility Notice', 'पात्रता नोटिस', 'पात्रता सूचना'),
-        t(
-          `You may not fully meet the eligibility criteria.\n\nYou can still apply — the district officer will review your case.`,
-          `आप पूरी तरह पात्र नहीं हो सकते।\n\nफिर भी आवेदन किया जा सकता है — अधिकारी समीक्षा करेंगे।`,
-          `तुम्ही पूर्णपणे पात्र नसाल.\n\nतरीही अर्ज करता येतो — अधिकारी आढावा घेतील.`,
-        ),
-        [
-          { text: t('Cancel', 'रद्द करें', 'रद्द करा'), style: 'cancel' },
-          { text: t('Apply Anyway', 'फिर भी आवेदन करें', 'तरीही अर्ज करा'), onPress: () => proceedWithApply(requiredDocIds) },
-        ],
-      );
       return;
     }
 
