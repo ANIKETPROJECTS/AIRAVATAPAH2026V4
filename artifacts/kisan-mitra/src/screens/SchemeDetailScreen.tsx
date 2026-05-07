@@ -50,76 +50,150 @@ interface EligibilityResult {
   reasons: { ok: boolean; text: string }[];
 }
 
+function parseAgeRange(rule: string): { min: number; max: number } | null {
+  const rangeMatch = rule.match(/(\d+)\s*(?:to|-|–|and)\s*(\d+)/);
+  if (rangeMatch) return { min: parseInt(rangeMatch[1]), max: parseInt(rangeMatch[2]) };
+  const aboveMatch = rule.match(/(?:above|min(?:imum)?|at least|over)\s*(\d+)/i);
+  if (aboveMatch) return { min: parseInt(aboveMatch[1]), max: 120 };
+  const belowMatch = rule.match(/(?:below|under|max(?:imum)?|up to|upto)\s*(\d+)/i);
+  if (belowMatch) return { min: 0, max: parseInt(belowMatch[1]) };
+  return null;
+}
+
+function getFarmerAge(dob?: string): number | null {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 function assessEligibility(
   tabType: 'schemes' | 'insurance' | 'subsidies',
   item: Scheme | InsuranceSubsidy,
-  farmer: { crop?: string; land?: string | number; docs?: { section: string; status: string }[]; status?: string; bankAccount?: string } | null,
+  farmer: { crop?: string; land?: string | number; dob?: string; docs?: { section: string; status: string }[]; status?: string; bankAccount?: string } | null,
 ): EligibilityResult {
   const reasons: { ok: boolean; text: string }[] = [];
   const crop = farmer?.crop;
   const land = farmer?.land;
-  const docsCount = (farmer?.docs ?? []).length;
-  const totalDocs = 5;
+  const farmerAge = getFarmerAge(farmer?.dob);
+  const hasBankAccount = !!(farmer?.bankAccount && farmer.bankAccount !== '—');
+  const hasLand = !!(land && land !== '—' && !isNaN(parseFloat(String(land))));
+  const acres = hasLand ? parseFloat(String(land)) : 0;
 
   const isVerified = farmer?.status === 'Active' || farmer?.status === 'Verified';
-  reasons.push({ ok: isVerified, text: isVerified ? 'Your profile is verified ✓' : 'Profile verification pending' });
-
-  const allDocsUploaded = docsCount >= totalDocs;
-  reasons.push({
-    ok: allDocsUploaded,
-    text: allDocsUploaded
-      ? `All ${totalDocs} required documents uploaded ✓`
-      : `${docsCount}/${totalDocs} documents uploaded — upload remaining docs`,
-  });
+  reasons.push({ ok: isVerified, text: isVerified ? 'Your profile is verified ✓' : 'Profile not yet verified by officer' });
 
   if (tabType === 'schemes') {
     const scheme = item as Scheme;
+    const params = typeof scheme.eligibility === 'object' && scheme.eligibility !== null
+      ? (scheme.eligibility as { parameters?: { parameter: string; rule: string }[] }).parameters ?? []
+      : [];
     const eligText = getEligibilityText(scheme.eligibility).toLowerCase();
-    if (eligText) {
+
+    let hasCropCheck = false;
+    let hasLandCheck = false;
+    let hasAgeCheck = false;
+
+    for (const p of params) {
+      const param = p.parameter.toLowerCase();
+      const rule = p.rule;
+
+      if (param.includes('age')) {
+        hasAgeCheck = true;
+        const range = parseAgeRange(rule);
+        if (range) {
+          if (farmerAge !== null) {
+            const ok = farmerAge >= range.min && farmerAge <= range.max;
+            reasons.push({ ok, text: ok ? `Age (${farmerAge} yrs) is within ${range.min}–${range.max} years ✓` : `Age must be ${range.min}–${range.max} years (yours: ${farmerAge} yrs)` });
+          } else {
+            reasons.push({ ok: false, text: `Age required: ${range.min}–${range.max} years — not recorded` });
+          }
+        } else {
+          reasons.push({ ok: true, text: `Age: ${rule}` });
+        }
+      } else if (param.includes('land') || param.includes('holding')) {
+        hasLandCheck = true;
+        if (hasLand) {
+          reasons.push({ ok: true, text: `Land holding recorded: ${acres} acres ✓` });
+        } else {
+          reasons.push({ ok: false, text: `Land holding required — not recorded in your profile` });
+        }
+      } else if (param.includes('crop') || param.includes('cultivation')) {
+        hasCropCheck = true;
+        if (crop && crop !== '—') {
+          const inScope = eligText.includes(crop.toLowerCase()) || eligText.includes('all farmers') || eligText.includes('any crop') || eligText.includes('all crop');
+          reasons.push({ ok: inScope, text: inScope ? `Your crop (${crop}) is within scope ✓` : `Your crop (${crop}) may not be covered — verify eligibility` });
+        } else {
+          reasons.push({ ok: false, text: 'Crop information not recorded in your profile' });
+        }
+      } else if (param.includes('citizen')) {
+        reasons.push({ ok: isVerified, text: isVerified ? 'Indian citizen identity verified ✓' : 'Citizenship verification required' });
+      } else if (param.includes('activit') || param.includes('agricultur')) {
+        const ok = hasLand || !!(crop && crop !== '—');
+        reasons.push({ ok, text: ok ? 'Agricultural activity confirmed from profile ✓' : 'No agricultural activity recorded in profile' });
+      }
+    }
+
+    // Fallback crop check if no crop parameter found
+    if (!hasCropCheck && eligText) {
       if (crop && crop !== '—') {
-        const cropMatch = eligText.includes(crop.toLowerCase()) || eligText.includes('all farmers') || eligText.includes('any crop');
-        reasons.push({ ok: cropMatch, text: cropMatch ? `Your crop (${crop}) matches scheme coverage ✓` : `Your crop (${crop}) may not be in scope — check eligibility text` });
+        const inScope = eligText.includes(crop.toLowerCase()) || eligText.includes('all farmers') || eligText.includes('any crop');
+        if (!inScope) reasons.push({ ok: false, text: `Your crop (${crop}) may not be in scope — verify eligibility` });
       } else {
         reasons.push({ ok: false, text: 'Crop information not recorded in your profile' });
       }
     }
-    if (land && land !== '—') {
-      reasons.push({ ok: true, text: `Land holding recorded: ${land} acres ✓` });
-    } else {
-      reasons.push({ ok: false, text: 'Land holding not recorded in your profile' });
+    // Fallback land check
+    if (!hasLandCheck && !hasAgeCheck) {
+      if (hasLand) {
+        reasons.push({ ok: true, text: `Land holding recorded: ${acres} acres ✓` });
+      } else {
+        reasons.push({ ok: false, text: 'Land holding not recorded in your profile' });
+      }
     }
-    if (farmer?.bankAccount && farmer.bankAccount !== '—') {
-      reasons.push({ ok: true, text: 'Bank account linked for DBT ✓' });
-    } else {
-      reasons.push({ ok: false, text: 'Link bank account for benefit disbursement' });
-    }
+
+    // Bank account — always needed for any scheme benefit
+    reasons.push({ ok: hasBankAccount, text: hasBankAccount ? 'Bank account linked for DBT ✓' : 'Bank account required for benefit disbursement' });
+
   } else {
     const ins = item as InsuranceSubsidy;
+
+    // Crop check
     if (ins.crops && ins.crops.length > 0) {
       if (crop && crop !== '—') {
         const cropMatch = ins.crops.some(c => c.toLowerCase().includes(crop.toLowerCase()) || crop.toLowerCase().includes(c.toLowerCase()));
-        reasons.push({ ok: cropMatch, text: cropMatch ? `Your crop (${crop}) is in the covered list ✓` : `Your crop (${crop}) not in: ${ins.crops.join(', ')}` });
+        reasons.push({ ok: cropMatch, text: cropMatch ? `Your crop (${crop}) is in covered list ✓` : `Your crop (${crop}) not in: ${ins.crops.join(', ')}` });
       } else {
-        reasons.push({ ok: false, text: `Crop info required — covered: ${ins.crops.join(', ')}` });
+        reasons.push({ ok: false, text: `Crop info not recorded — covered crops: ${ins.crops.join(', ')}` });
       }
-    } else if (ins.eligibility) {
-      const e = ins.eligibility.toLowerCase();
-      if (crop && crop !== '—' && e.includes(crop.toLowerCase())) {
-        reasons.push({ ok: true, text: `Your crop (${crop}) is mentioned in eligibility ✓` });
-      } else {
-        reasons.push({ ok: true, text: 'Open to all eligible farmers — check criteria below ✓' });
-      }
-    }
-    if (ins.minLand !== undefined) {
-      const acres = parseFloat(String(land ?? '0'));
-      const ok = !isNaN(acres) && acres >= ins.minLand;
-      reasons.push({ ok, text: ok ? `Land (${acres} acres) meets minimum ${ins.minLand} acres ✓` : `Need ≥ ${ins.minLand} acres (you have ${land || '?'} acres)` });
-    }
-    if (farmer?.bankAccount && farmer.bankAccount !== '—') {
-      reasons.push({ ok: true, text: 'Bank account linked ✓' });
     } else {
-      reasons.push({ ok: false, text: 'Bank account required for claim disbursement' });
+      reasons.push({ ok: true, text: 'Open to all eligible farmers ✓' });
     }
+
+    // Land size check
+    if (ins.minLand !== undefined) {
+      if (hasLand) {
+        const ok = acres >= ins.minLand;
+        reasons.push({ ok, text: ok ? `Land (${acres} acres) meets minimum of ${ins.minLand} acres ✓` : `Minimum ${ins.minLand} acres required (you have ${acres} acres)` });
+      } else {
+        reasons.push({ ok: false, text: `Minimum ${ins.minLand} acres required — land not recorded` });
+      }
+    } else if (hasLand) {
+      reasons.push({ ok: true, text: `Land holding recorded: ${acres} acres ✓` });
+    } else {
+      reasons.push({ ok: false, text: 'Land holding not recorded in your profile' });
+    }
+
+    if (ins.maxLand !== undefined && hasLand && acres > ins.maxLand) {
+      reasons.push({ ok: false, text: `Land (${acres} acres) exceeds maximum of ${ins.maxLand} acres for this scheme` });
+    }
+
+    // Bank account
+    reasons.push({ ok: hasBankAccount, text: hasBankAccount ? 'Bank account linked for claim disbursement ✓' : 'Bank account required for claim disbursement' });
   }
 
   const okCount = reasons.filter(r => r.ok).length;
