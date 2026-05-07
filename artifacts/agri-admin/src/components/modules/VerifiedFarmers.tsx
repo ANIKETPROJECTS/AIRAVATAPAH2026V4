@@ -12,6 +12,7 @@ import {
   SubsidyApplicationsPage,
   GrievancesPage,
   DocumentsPage,
+  AllApplicationsPage,
 } from "@/components/modules/FarmerSubPages";
 
 /* ─── helpers ─── */
@@ -39,11 +40,12 @@ function farmerGradient(id: string) {
 }
 
 /* ─── sub-page metadata ─── */
-type SubPageKey = "scheme_apps" | "insurance_apps" | "subsidy_apps" | "grievances" | "documents";
+type SubPageKey = "scheme_apps" | "insurance_apps" | "subsidy_apps" | "applications" | "grievances" | "documents";
 const SUB_PAGE_META: Record<SubPageKey, { label: string; icon: React.ReactNode }> = {
   scheme_apps:    { label: "Scheme Applications",    icon: <Shield className="h-4 w-4" /> },
   insurance_apps: { label: "Insurance Applications", icon: <LifeBuoy className="h-4 w-4" /> },
   subsidy_apps:   { label: "Subsidy Applications",   icon: <IndianRupee className="h-4 w-4" /> },
+  applications:   { label: "Applications",           icon: <Shield className="h-4 w-4" /> },
   grievances:     { label: "Grievances",             icon: <AlertCircle className="h-4 w-4" /> },
   documents:      { label: "Documents",              icon: <FileText className="h-4 w-4" /> },
 };
@@ -171,6 +173,7 @@ function SubPageView({ farmer, subPage }: { farmer: FarmerRecord; subPage: SubPa
         {subPage === "scheme_apps"    && <SchemeApplicationsPage    farmer={farmer} />}
         {subPage === "insurance_apps" && <InsuranceApplicationsPage farmer={farmer} />}
         {subPage === "subsidy_apps"   && <SubsidyApplicationsPage   farmer={farmer} />}
+        {subPage === "applications"   && <AllApplicationsPage       farmer={farmer} />}
         {subPage === "grievances"     && <GrievancesPage            farmer={farmer} />}
         {subPage === "documents"      && <DocumentsPage             farmer={farmer} />}
       </div>

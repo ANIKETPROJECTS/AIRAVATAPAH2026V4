@@ -1,13 +1,24 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import {
-  User, MapPin, Landmark, Sprout, Shield, FileText, AlertCircle,
-  CheckCircle2, Phone, Mail,
-  Droplets, BadgeCheck,
-  Hash, Fingerprint, CreditCard, Building2,
-  Wheat, Layers, Zap,
-  ArrowRight, IndianRupee, LifeBuoy,
+  Landmark, Sprout, Shield, FileText, AlertCircle,
+  CheckCircle2, Phone, Hash, BadgeCheck, Mail,
+  CreditCard, ArrowRight, IndianRupee, LifeBuoy,
+  FileStack, ClipboardCheck, UserCheck, Loader2, MapPin,
 } from "lucide-react";
-import type { FarmerRecord, OcrDocSection } from "@/data/farmerApi";
+import type { FarmerRecord } from "@/data/farmerApi";
+import { DocContentView } from "@/components/modules/FarmerReviewModal";
+import {
+  type DocTypeId,
+  type ExtractionState,
+  type LangCode,
+  type FarmerProfile,
+  DEFAULT_STATE,
+  EMPTY_PROFILE,
+  FarmerProfileCard,
+  DOC_CARDS,
+  DOC_CARD_SHORT,
+  extractProfileFromStates,
+} from "@/components/modules/NewRegistration";
 
 /* ─────────────────────────── helpers ─────────────────────────── */
 export function formatLandHAR(val: number | string | undefined): string {
@@ -103,17 +114,150 @@ function SummaryCard({ id, title, icon, badge, onClick, children }: {
   );
 }
 
+/* ─────────────────────────── profile section ─────────────────────────── */
+function DocTabIcon({ id }: { id: DocTypeId }) {
+  if (id === "form7") return <FileStack className="h-3.5 w-3.5 flex-shrink-0" />;
+  if (id === "form12") return <Sprout className="h-3.5 w-3.5 flex-shrink-0" />;
+  if (id === "form8a") return <ClipboardCheck className="h-3.5 w-3.5 flex-shrink-0" />;
+  if (id === "aadhar") return <CreditCard className="h-3.5 w-3.5 flex-shrink-0" />;
+  return <Landmark className="h-3.5 w-3.5 flex-shrink-0" />;
+}
+
+function ProfileSection({
+  farmer,
+  docImages,
+}: {
+  farmer: FarmerRecord;
+  docImages: Record<string, { base64: string; mimeType: string }>;
+}) {
+  const docStates = useMemo(() => {
+    const states = Object.fromEntries(
+      DOC_CARDS.map(c => [c.id, { ...DEFAULT_STATE }])
+    ) as Record<DocTypeId, ExtractionState>;
+    if (farmer.extractionData) {
+      for (const [docId, saved] of Object.entries(farmer.extractionData)) {
+        const s = saved as unknown as Record<string, unknown>;
+        states[docId as DocTypeId] = {
+          status: "complete",
+          filename: (s["filename"] as string) ?? "",
+          requestId: null,
+          sections: Array.isArray(s["sections"]) ? s["sections"] as ExtractionState["sections"] : [],
+          images: null,
+          rawTables: Array.isArray(s["rawTables"]) ? s["rawTables"] as ExtractionState["rawTables"] : [],
+          textBlocks: Array.isArray(s["textBlocks"]) ? s["textBlocks"] as string[] : [],
+          aadharPhoto: (s["aadharPhoto"] as ExtractionState["aadharPhoto"]) ?? null,
+          error: null,
+        };
+      }
+    }
+    return states;
+  }, [farmer]);
+
+  const completedCards = DOC_CARDS.filter(c => docStates[c.id].status === "complete");
+  const [activeTab, setActiveTab] = useState<DocTypeId | "profile">(
+    completedCards.length > 0 ? completedCards[0].id : "profile"
+  );
+  const [lang, setLang] = useState<LangCode>("en");
+
+  const profile = useMemo<FarmerProfile>(() => {
+    if (farmer.farmerProfile) return farmer.farmerProfile as unknown as FarmerProfile;
+    const base: FarmerProfile = {
+      ...EMPTY_PROFILE,
+      name: farmer.name ?? "",
+      village: farmer.village ?? "",
+      taluka: farmer.taluka ?? "",
+      district: farmer.district ?? "",
+      aadhaar: farmer.aadhaar ?? "",
+      khateNumber: farmer.khateNumber ?? "",
+      surveyNumber: farmer.surveyNumber ?? "",
+      land: String(farmer.land ?? ""),
+      crop: farmer.crop ?? "",
+      bankAccount: farmer.bankAccount ?? "",
+    };
+    const extracted = extractProfileFromStates(docStates);
+    (Object.keys(extracted) as (keyof FarmerProfile)[]).forEach(k => {
+      if (!base[k] && extracted[k]) base[k] = extracted[k]!;
+    });
+    return base;
+  }, [farmer, docStates]);
+
+  if (completedCards.length === 0 && !farmer.farmerProfile) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+        <FileText className="h-10 w-10 text-muted-foreground/20" />
+        <p className="text-sm text-muted-foreground">No OCR documents have been processed for this farmer yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+        {completedCards.map(card => (
+          <button
+            key={card.id}
+            onClick={() => setActiveTab(card.id)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+              activeTab === card.id
+                ? "bg-secondary text-white shadow-sm"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            <DocTabIcon id={card.id} />
+            {DOC_CARD_SHORT[card.id]?.["en"] ?? card.id}
+          </button>
+        ))}
+        <button
+          onClick={() => setActiveTab("profile")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+            activeTab === "profile"
+              ? "bg-secondary text-white shadow-sm"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          <UserCheck className="h-3.5 w-3.5 flex-shrink-0" />
+          Farmer Profile
+        </button>
+      </div>
+
+      {activeTab !== "profile" && docStates[activeTab as DocTypeId]?.status === "complete" && (
+        <DocContentView
+          state={docStates[activeTab as DocTypeId]}
+          docId={activeTab as DocTypeId}
+          lang={lang}
+          rawDocImage={docImages[activeTab as string] ?? null}
+        />
+      )}
+
+      {activeTab === "profile" && (
+        <FarmerProfileCard
+          docStates={docStates}
+          profile={profile}
+          onChange={() => {}}
+          onApprove={() => {}}
+          approved={false}
+          onBack={() => {}}
+          lang={lang}
+          onLangChange={setLang}
+          customPhoto={null}
+          onCustomPhotoChange={() => {}}
+          hideFooter={true}
+          extraDocImages={Object.fromEntries(
+            Object.entries(docImages).map(([k, v]) => [k, `data:${v.mimeType};base64,${v.base64}`])
+          )}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ─────────────────────────── quick-jump nav ─────────────────────────── */
-const SCROLL_SECTIONS = ["sec-personal", "sec-land", "sec-bank", "sec-docs"];
+const SCROLL_SECTIONS = ["sec-profile", "sec-docs", "sec-apps", "sec-grievances"];
 const NAV_ITEMS = [
-  { id: "sec-personal",      label: "Personal",          navKey: null as string | null, icon: <User className="h-3.5 w-3.5" /> },
-  { id: "sec-land",          label: "Land",              navKey: null,                  icon: <Sprout className="h-3.5 w-3.5" /> },
-  { id: "sec-bank",          label: "Bank",              navKey: null,                  icon: <Landmark className="h-3.5 w-3.5" /> },
-  { id: "sec-docs",          label: "Documents",         navKey: null,                  icon: <FileText className="h-3.5 w-3.5" /> },
-  { id: "sec-scheme-apps",   label: "Scheme Apps",       navKey: "scheme_apps",         icon: <Shield className="h-3.5 w-3.5" /> },
-  { id: "sec-ins-apps",      label: "Insurance Apps",    navKey: "insurance_apps",      icon: <LifeBuoy className="h-3.5 w-3.5" /> },
-  { id: "sec-sub-apps",      label: "Subsidy Apps",      navKey: "subsidy_apps",        icon: <IndianRupee className="h-3.5 w-3.5" /> },
-  { id: "sec-grievances",    label: "Grievances",        navKey: "grievances",          icon: <AlertCircle className="h-3.5 w-3.5" /> },
+  { id: "sec-profile",    label: "Profile",       navKey: null as string | null, icon: <UserCheck className="h-3.5 w-3.5" /> },
+  { id: "sec-docs",       label: "Documents",     navKey: null,                  icon: <FileText className="h-3.5 w-3.5" /> },
+  { id: "sec-apps",       label: "Applications",  navKey: "applications",        icon: <Shield className="h-3.5 w-3.5" /> },
+  { id: "sec-grievances", label: "Grievances",    navKey: "grievances",          icon: <AlertCircle className="h-3.5 w-3.5" /> },
 ];
 
 function QuickNav({ activeId, onJump, onNavigate }: { activeId: string; onJump: (id: string) => void; onNavigate: (key: string) => void }) {
@@ -143,10 +287,25 @@ function QuickNav({ activeId, onJump, onNavigate }: { activeId: string; onJump: 
 /* ─────────────────────────── main card ─────────────────────────── */
 export default function VerifiedFarmerCard({ farmer, onNavigate }: { farmer: FarmerRecord; onNavigate?: (section: string) => void }) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const [activeNav, setActiveNav] = useState("sec-personal");
-  const ha = landToHa(farmer.land);
+  const [activeNav, setActiveNav] = useState("sec-profile");
+  const [docImages, setDocImages] = useState<Record<string, { base64: string; mimeType: string }>>({});
+  const [docsLoading, setDocsLoading] = useState(false);
   const initials = farmer.name.trim().split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   const regDate = new Date(farmer.addedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  useEffect(() => {
+    if (!farmer.farmerId) return;
+    setDocsLoading(true);
+    fetch(`/api/farmers/${farmer.farmerId}/documents`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((data: { documents: { docType: string; base64: string; mimeType: string }[] }) => {
+        const map: Record<string, { base64: string; mimeType: string }> = {};
+        for (const d of data.documents ?? []) map[d.docType] = { base64: d.base64, mimeType: d.mimeType };
+        setDocImages(map);
+      })
+      .catch(() => {})
+      .finally(() => setDocsLoading(false));
+  }, [farmer.farmerId]);
 
   useEffect(() => {
     const obs = new IntersectionObserver(entries => {
@@ -163,10 +322,7 @@ export default function VerifiedFarmerCard({ farmer, onNavigate }: { farmer: Far
   }, []);
   const nav = useCallback((key: string) => { onNavigate?.(key); }, [onNavigate]);
 
-  /* OCR doc keys */
-  const ocrKeys = farmer.ocr ? (Object.keys(farmer.ocr) as Array<keyof typeof farmer.ocr>) : [];
-  const DOC_LABEL: Record<string, string> = { aadhar: "Aadhaar Card", passbook: "Bank Passbook", form7: "7/12 Satbara (Form 7)", form12: "Form 12 — Crop Register", form8a: "Form 8A" };
-  const SKIP_FIELDS = new Set(["rawText", "html", "photoBase64", "photoMimeType", "images", "transactions", "tables", "textBlocks", "cropEntries", "ownershipEntries", "holdings"]);
+  const DOC_LABEL: Record<string, string> = { aadhar: "Aadhaar Card", bank_passbook: "Bank Passbook", form7: "7/12 Satbara (Form 7)", form12: "Form 12 — Crop Register", form8a: "Form 8A" };
 
   return (
     <div ref={cardRef} className="bg-white border border-border rounded-2xl shadow-sm overflow-hidden">
@@ -224,182 +380,50 @@ export default function VerifiedFarmerCard({ farmer, onNavigate }: { farmer: Far
       {/* ═══════════════════ BODY ═══════════════════ */}
       <div className="p-4 space-y-3 bg-slate-50/50">
 
-        {/* 1 ── Personal & Identity */}
-        <Section id="sec-personal" title="Personal & Identity Details" icon={<User className="h-4 w-4" />}>
-          <div className="space-y-5">
-            <div>
-              <SubHeader icon={<Fingerprint className="h-3.5 w-3.5" />} label="Identity Information" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
-                <InfoBlock label="Full Name" value={farmer.name} />
-                <InfoBlock label="Father / Husband" value={farmer.fatherName} />
-                <InfoBlock label="Date of Birth" value={farmer.dob} />
-                <InfoBlock label="Age" value={calcAge(farmer.dob)} />
-                <InfoBlock label="Gender" value={farmer.gender} />
-                <InfoBlock label="Category" value={farmer.category || "General"} />
-                <InfoBlock label="Religion" value={farmer.religion} />
-                <InfoBlock label="Differently Abled" value={farmer.diffAbled ? "Yes" : "No"} />
-                {farmer.diffAbled && <InfoBlock label="Disability Type" value={farmer.disabilityType} />}
-              </div>
+        {/* 1 ── Profile (OCR extracted data) */}
+        <Section id="sec-profile" title="Profile" icon={<UserCheck className="h-4 w-4" />}>
+          {docsLoading ? (
+            <div className="flex items-center justify-center py-12 gap-3 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Loading profile data...</span>
             </div>
-            <div className="border-t border-slate-100 pt-4">
-              <SubHeader icon={<CreditCard className="h-3.5 w-3.5" />} label="Identification Numbers" />
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-4">
-                <InfoBlock label="Aadhaar" value={farmer.aadhaar} mono />
-                <InfoBlock label="PAN Card" value="—" mono />
-                <InfoBlock label="Voter ID" value="—" mono />
-                <InfoBlock label="Ration Card" value="—" mono />
-              </div>
-            </div>
-            <div className="border-t border-slate-100 pt-4">
-              <SubHeader icon={<Phone className="h-3.5 w-3.5" />} label="Contact & Address" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
-                <InfoBlock label="Mobile" value={farmer.mobile} mono />
-                <InfoBlock label="Alt. Mobile" value={farmer.altMobile} mono />
-                <InfoBlock label="Email" value={farmer.email} />
-                <InfoBlock label="Village" value={farmer.village} />
-                <InfoBlock label="Taluka" value={farmer.taluka} />
-                <InfoBlock label="District" value={farmer.district} />
-                <InfoBlock label="State" value="Maharashtra" />
-              </div>
-            </div>
-          </div>
+          ) : (
+            <ProfileSection farmer={farmer} docImages={docImages} />
+          )}
         </Section>
 
-        {/* 2 ── Land & Agriculture */}
-        <Section id="sec-land" title="Land & Agriculture Details" icon={<Sprout className="h-4 w-4" />} badge={farmer.landParcels?.length ?? 1}>
-          <div className="space-y-5">
-            {farmer.landParcels && farmer.landParcels.length > 0 ? farmer.landParcels.map((lp, i) => (
-              <div key={i} className={farmer.landParcels!.length > 1 ? "border border-slate-200 rounded-xl p-4 bg-white" : ""}>
-                {farmer.landParcels!.length > 1 && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-6 h-6 rounded-full bg-secondary text-white text-xs font-bold flex items-center justify-center">{i + 1}</div>
-                    <span className="text-sm font-semibold text-slate-700">Land Parcel {i + 1}</span>
-                  </div>
-                )}
-                <div className="space-y-4">
-                  <div>
-                    <SubHeader icon={<MapPin className="h-3.5 w-3.5" />} label="Location" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
-                      <InfoBlock label="Survey / Gat No." value={lp.surveyNo} mono />
-                      <InfoBlock label="Khate No." value={farmer.khateNumber} mono />
-                      <InfoBlock label="Village" value={lp.village} />
-                      <InfoBlock label="Taluka" value={lp.taluka} />
-                      <InfoBlock label="District" value={lp.district} />
-                      <InfoBlock label="State" value={lp.state || "Maharashtra"} />
-                    </div>
-                  </div>
-                  <div className="border-t border-slate-100 pt-4">
-                    <SubHeader icon={<Layers className="h-3.5 w-3.5" />} label="Area & Ownership" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
-                      <InfoBlock label="Total Area" value={formatLandHAR(lp.totalArea)} mono highlight />
-                      <InfoBlock label="Irrigated Area" value={lp.irrigatedArea ? formatLandHAR(lp.irrigatedArea) : "—"} mono />
-                      <InfoBlock label="Ownership Type" value={lp.ownershipType || "—"} />
-                      <InfoBlock label="Soil Type" value={lp.soilType || "—"} />
-                    </div>
-                  </div>
-                  <div className="border-t border-slate-100 pt-4">
-                    <SubHeader icon={<Wheat className="h-3.5 w-3.5" />} label="Crops & Farming" />
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4 mb-4">
-                      <InfoBlock label="Primary Crop (Kharif)" value={lp.primaryCrop || farmer.crop} />
-                      <InfoBlock label="Secondary Crop (Rabi)" value={lp.secondaryCrop || "—"} />
-                      <InfoBlock label="Farming Type" value={lp.farmingType || "Conventional"} />
-                    </div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mb-2">Irrigation Sources</div>
-                    <div className="flex flex-wrap gap-2">
-                      {lp.irrigationSources && lp.irrigationSources.length > 0
-                        ? lp.irrigationSources.map(src => (
-                          <span key={src} className="text-xs px-3 py-1 rounded-full bg-teal-100 text-teal-800 border border-teal-200 flex items-center gap-1.5 font-medium">
-                            <Droplets className="h-3 w-3" />{src}
-                          </span>))
-                        : <span className="text-sm text-muted-foreground/60">Not specified</span>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
-                <InfoBlock label="Survey / Gat No." value={farmer.surveyNumber} mono />
-                <InfoBlock label="Khate No." value={farmer.khateNumber} mono />
-                <InfoBlock label="Village" value={farmer.village} />
-                <InfoBlock label="District" value={farmer.district} />
-                <InfoBlock label="Total Area" value={formatLandHAR(farmer.land)} mono highlight />
-                <InfoBlock label="Ownership Type" value="Own" />
-                <InfoBlock label="Primary Crop" value={farmer.crop} />
-                <InfoBlock label="Farming Type" value="Conventional" />
-              </div>
-            )}
-          </div>
-        </Section>
-
-        {/* 3 ── Bank & Financial */}
-        <Section id="sec-bank" title="Bank & Financial Details" icon={<Landmark className="h-4 w-4" />}>
-          <div className="space-y-5">
-            <div>
-              <SubHeader icon={<Building2 className="h-3.5 w-3.5" />} label="Bank Account" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
-                <InfoBlock label="Bank Name" value={farmer.bankName} />
-                <InfoBlock label="Branch" value={farmer.branchName} />
-                <InfoBlock label="IFSC Code" value={farmer.ifsc} mono />
-                <InfoBlock label="Account Number" value={farmer.accountNo || farmer.bankAccount} mono />
-                <InfoBlock label="Account Type" value={farmer.accountType || "Savings"} />
-                <InfoBlock label="Account Holder" value={farmer.name} />
-              </div>
-            </div>
-            <div className="border-t border-slate-100 pt-4">
-              <SubHeader icon={<Zap className="h-3.5 w-3.5" />} label="DBT & Linkage Status" />
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4">
-                <InfoBlock label="Aadhaar–Bank Linked" value={farmer.aadhaarLinked || "Yes"} />
-                <InfoBlock label="NPCI / DBT Status" value={farmer.npciStatus || "Active"} />
-                <InfoBlock label="eKYC Status" value="Completed" />
-              </div>
-            </div>
-          </div>
-        </Section>
-
-        {/* 4 ── Original Documents */}
-        <Section id="sec-docs" title="Original Documents" icon={<FileText className="h-4 w-4" />} badge={farmer.docs?.length ?? 0}>
-          <div className="space-y-5">
-
-            {/* Document image previews from OCR */}
-            {ocrKeys.length > 0 && (
-              <div>
-                <SubHeader icon={<FileText className="h-3.5 w-3.5" />} label="Uploaded Document Previews" />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {ocrKeys.map(key => {
-                    const section = farmer.ocr?.[key] as OcrDocSection | undefined;
-                    if (!section) return null;
-                    const photo = (section["photoBase64"] ?? section["aadharPhoto"]) as string | undefined;
-                    const mimeType = (section["photoMimeType"] ?? "image/jpeg") as string;
-                    return (
-                      <div key={key} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-emerald-600" />
-                          <span className="text-xs font-semibold text-emerald-800">{DOC_LABEL[key] ?? key}</span>
-                          <span className="ml-auto text-[10px] text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full">AI-OCR</span>
-                        </div>
-                        {photo ? (
-                          <div className="p-3 flex justify-center">
-                            <img src={`data:${mimeType};base64,${photo}`} alt={DOC_LABEL[key] ?? key} className="max-h-48 object-contain rounded-lg border border-slate-100" />
-                          </div>
-                        ) : (
-                          <div className="p-4 flex items-center gap-3 text-muted-foreground">
-                            <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center"><FileText className="h-5 w-5 text-slate-400" /></div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-slate-700">{DOC_LABEL[key] ?? key}</div>
-                              <div className="text-xs text-muted-foreground">Data extracted — no image preview</div>
-                            </div>
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+        {/* 2 ── Original Documents */}
+        <Section id="sec-docs" title="Original Documents" icon={<FileText className="h-4 w-4" />} badge={Object.keys(docImages).length}>
+          <div className="space-y-4">
+            {docsLoading && (
+              <div className="flex items-center justify-center py-8 gap-3 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Loading documents...</span>
               </div>
             )}
 
-            {/* Document metadata tiles */}
-            {farmer.docs && farmer.docs.length > 0 ? (
+            {!docsLoading && Object.keys(docImages).length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Object.entries(docImages).map(([docType, img]) => (
+                  <div key={docType} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                    <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-emerald-600" />
+                      <span className="text-xs font-semibold text-emerald-800">{DOC_LABEL[docType] ?? docType}</span>
+                      <span className="ml-auto text-[10px] text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full">Uploaded</span>
+                    </div>
+                    <div className="p-3 flex justify-center">
+                      <img
+                        src={`data:${img.mimeType};base64,${img.base64}`}
+                        alt={DOC_LABEL[docType] ?? docType}
+                        className="max-h-64 object-contain rounded-lg border border-slate-100 w-full"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!docsLoading && farmer.docs && farmer.docs.length > 0 && (
               <div>
                 <SubHeader icon={<FileText className="h-3.5 w-3.5" />} label="Document File Records" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -419,59 +443,12 @@ export default function VerifiedFarmerCard({ farmer, onNavigate }: { farmer: Far
                   ))}
                 </div>
               </div>
-            ) : ocrKeys.length === 0 && (
+            )}
+
+            {!docsLoading && Object.keys(docImages).length === 0 && (!farmer.docs || farmer.docs.length === 0) && (
               <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
                 <FileText className="h-8 w-8 text-muted-foreground/30" />
                 <p className="text-sm text-muted-foreground">No document files on record for this farmer.</p>
-              </div>
-            )}
-
-            {/* OCR Extracted Fields */}
-            {ocrKeys.length > 0 && (
-              <div>
-                <SubHeader icon={<FileText className="h-3.5 w-3.5" />} label="Extracted Document Data" />
-                <div className="space-y-4">
-                  {ocrKeys.map(key => {
-                    const data = farmer.ocr?.[key] as OcrDocSection | undefined;
-                    if (!data) return null;
-                    const fields = Object.entries(data).filter(([k, v]) =>
-                      !SKIP_FIELDS.has(k) && v !== null && v !== undefined && v !== "" && !Array.isArray(v) && typeof v !== "object"
-                    );
-                    const arrayFields = Object.entries(data).filter(([k, v]) =>
-                      !SKIP_FIELDS.has(k) && Array.isArray(v) && (v as unknown[]).length > 0
-                    );
-                    if (fields.length === 0 && arrayFields.length === 0) return null;
-                    return (
-                      <div key={key} className="border border-border/60 rounded-lg overflow-hidden">
-                        <div className="px-3 py-2 bg-teal-50 text-xs font-semibold text-teal-800 flex items-center gap-1.5">
-                          <FileText className="h-3.5 w-3.5" />{DOC_LABEL[key] ?? key}
-                        </div>
-                        <div className="p-3">
-                          {fields.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
-                              {fields.map(([k, v]) => (
-                                <div key={k} className="flex flex-col gap-0.5">
-                                  <span className="text-[10px] text-muted-foreground capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                  <span className="text-xs font-medium">{String(v)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {arrayFields.map(([k, v]) => (
-                            <div key={k} className="mt-2">
-                              <div className="text-[10px] text-muted-foreground capitalize mb-1">{k.replace(/([A-Z])/g, ' $1').trim()}</div>
-                              <div className="flex flex-wrap gap-1">
-                                {(v as string[]).map((item, i) => (
-                                  <span key={i} className="text-xs px-2 py-0.5 bg-muted/40 rounded">{String(item)}</span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             )}
           </div>
@@ -486,34 +463,23 @@ export default function VerifiedFarmerCard({ farmer, onNavigate }: { farmer: Far
           </div>
         </div>
 
-        {/* 5 ── Scheme Applications */}
-        <SummaryCard id="sec-scheme-apps" title="Scheme Applications" icon={<Shield className="h-4 w-4" />} onClick={() => nav("scheme_apps")}>
-          <p className="text-sm text-slate-600">View all government scheme applications for this farmer — submit new applications, track status (Pending, Under Review, Approved, Rejected), and update status.</p>
+        {/* 3 ── Applications (Scheme + Insurance + Subsidy) */}
+        <SummaryCard id="sec-apps" title="Applications" icon={<Shield className="h-4 w-4" />} onClick={() => nav("applications")}>
+          <p className="text-sm text-slate-600">View and manage all applications for this farmer — government schemes, crop &amp; life insurance (PMFBY, RWBCIS), and input subsidies (irrigation, fertilizer, equipment). Submit new applications and track status through approval.</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <span className="text-xs px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 border border-teal-200 font-medium">Central Govt. Schemes</span>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 font-medium">State — Maharashtra</span>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 border border-teal-200 font-medium">
+              <Shield className="h-3 w-3 inline mr-1" />Schemes
+            </span>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-medium">
+              <LifeBuoy className="h-3 w-3 inline mr-1" />Insurance
+            </span>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
+              <IndianRupee className="h-3 w-3 inline mr-1" />Subsidies
+            </span>
           </div>
         </SummaryCard>
 
-        {/* 6 ── Insurance Applications */}
-        <SummaryCard id="sec-ins-apps" title="Insurance Applications" icon={<LifeBuoy className="h-4 w-4" />} onClick={() => nav("insurance_apps")}>
-          <p className="text-sm text-slate-600">Manage crop and life insurance applications — PMFBY, RWBCIS, and other insurance schemes. Track claim status through to settlement.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="text-xs px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200 font-medium">Crop Insurance</span>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-teal-100 text-teal-700 border border-teal-200 font-medium">Claims & Settlement</span>
-          </div>
-        </SummaryCard>
-
-        {/* 7 ── Subsidy Applications */}
-        <SummaryCard id="sec-sub-apps" title="Subsidy Applications" icon={<IndianRupee className="h-4 w-4" />} onClick={() => nav("subsidy_apps")}>
-          <p className="text-sm text-slate-600">Review and submit subsidy applications — drip irrigation, fertilizer, seed, and equipment subsidies from state and central government programmes.</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">Input Subsidies</span>
-            <span className="text-xs px-2.5 py-1 rounded-full bg-lime-100 text-lime-700 border border-lime-200 font-medium">Equipment & Irrigation</span>
-          </div>
-        </SummaryCard>
-
-        {/* 8 ── Grievances */}
+        {/* 4 ── Grievances */}
         <SummaryCard id="sec-grievances" title="Grievances" icon={<AlertCircle className="h-4 w-4" />} onClick={() => nav("grievances")}>
           <p className="text-sm text-slate-600">View, raise, and manage all grievances filed by or for this farmer — filter by status, priority, and category. Replies and resolution notes are tracked.</p>
           <div className="mt-3 flex flex-wrap gap-2">

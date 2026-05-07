@@ -949,3 +949,44 @@ export function DocumentsPage({ farmer }: { farmer: FarmerRecord }) {
     </div>
   );
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   AllApplicationsPage — tabbed view: Schemes / Insurance / Subsidies
+   ───────────────────────────────────────────────────────────────── */
+export function AllApplicationsPage({ farmer }: { farmer: FarmerRecord }) {
+  type AppTab = "scheme" | "insurance" | "subsidy";
+  const [activeTab, setActiveTab] = useState<AppTab>("scheme");
+
+  const tabs: { key: AppTab; label: string; icon: React.ReactNode }[] = [
+    { key: "scheme",    label: "Scheme Applications",   icon: <Shield className="h-3.5 w-3.5 flex-shrink-0" /> },
+    { key: "insurance", label: "Insurance Applications", icon: <LifeBuoy className="h-3.5 w-3.5 flex-shrink-0" /> },
+    { key: "subsidy",   label: "Subsidy Applications",   icon: <IndianRupee className="h-3.5 w-3.5 flex-shrink-0" /> },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-1 border-b border-border pb-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all -mb-px ${
+              activeTab === tab.key
+                ? "border-secondary text-secondary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        {activeTab === "scheme"    && <SchemeApplicationsPage    farmer={farmer} />}
+        {activeTab === "insurance" && <InsuranceApplicationsPage farmer={farmer} />}
+        {activeTab === "subsidy"   && <SubsidyApplicationsPage   farmer={farmer} />}
+      </div>
+    </div>
+  );
+}

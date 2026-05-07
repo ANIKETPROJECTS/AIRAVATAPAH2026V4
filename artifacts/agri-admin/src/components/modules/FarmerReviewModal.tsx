@@ -46,7 +46,7 @@ function DocTabIcon({ id }: { id: DocTypeId }) {
   return <BookOpen className="h-3.5 w-3.5 flex-shrink-0" />;
 }
 
-function DocContentView({
+export function DocContentView({
   state,
   docId,
   lang,
