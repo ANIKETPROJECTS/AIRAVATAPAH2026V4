@@ -2,12 +2,18 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { X, ChevronLeft, ChevronRight, Plus, Search, RefreshCw, CheckCircle, XCircle, Clock, FileText } from "lucide-react";
 import { useNotifications } from "@/contexts/NotificationContext";
 
+const DOC_LABEL: Record<string, string> = {
+  aadhar: "Aadhaar Card", bank_passbook: "Bank Passbook",
+  form7: "Form 7 (7/12)", form12: "Form 12 (Pik Pahani)", form8a: "Form 8A",
+};
+
 interface Application {
   applicationId: string; type: string; farmerId: string; farmerName: string | null;
   mobile: string; district: string | null; village: string | null;
   schemeId: string; schemeName: string; schemeType: string | null;
   status: string; adminReply: string | null; adminNotes: string | null;
   source: string; appliedAt: string; updatedAt: string;
+  documentRefs?: string[];
 }
 
 const TABS = [
@@ -256,6 +262,18 @@ export default function SchemeApplications() {
                   <div><span className="text-muted-foreground text-xs">Status</span><div><StatusBadge status={review.status}/></div></div>
                 </div>
               </div>
+              {review.documentRefs && review.documentRefs.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm">
+                  <div className="text-xs font-semibold text-blue-700 mb-2">📎 Documents Submitted by Farmer</div>
+                  <div className="flex flex-wrap gap-2">
+                    {review.documentRefs.map(ref => (
+                      <span key={ref} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
+                        ✅ {DOC_LABEL[ref] ?? ref}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {review.adminReply && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm">
                   <div className="text-xs font-semibold text-emerald-700 mb-1">Previous Admin Reply</div>

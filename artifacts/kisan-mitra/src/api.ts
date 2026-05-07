@@ -236,6 +236,7 @@ export const api = {
     crop?: string | null;
     land?: number | null;
     lossDescription?: string | null;
+    documentRefs?: string[];
   }) =>
     request<Application>('/applications', {
       method: 'POST',

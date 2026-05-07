@@ -49,12 +49,13 @@ router.post("/applications", async (req, res): Promise<void> => {
     const {
       type, farmerId, farmerName, mobile, district, village,
       schemeId, schemeName, schemeType,
-      crop, land, lossDescription, source,
+      crop, land, lossDescription, source, documentRefs,
     } = req.body as {
       type?: AppType; farmerId?: string; farmerName?: string; mobile?: string;
       district?: string; village?: string;
       schemeId?: string; schemeName?: string; schemeType?: string;
       crop?: string; land?: number; lossDescription?: string; source?: string;
+      documentRefs?: string[];
     };
 
     if (!type || !farmerId || !mobile || !schemeName) {
@@ -87,6 +88,7 @@ router.post("/applications", async (req, res): Promise<void> => {
       status: "Pending",
       adminReply: null, adminNotes: null,
       source: source ?? "farmer",
+      documentRefs: Array.isArray(documentRefs) ? documentRefs : [],
       appliedAt: now, updatedAt: now,
     };
     await db.collection("applications").insertOne(application);
