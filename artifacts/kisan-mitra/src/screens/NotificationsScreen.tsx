@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
-  FlatList, ActivityIndicator, RefreshControl,
+  FlatList, ActivityIndicator, RefreshControl, ScrollView,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
@@ -59,6 +60,12 @@ export default function NotificationsScreen() {
   useEffect(() => {
     fetchNotifs().finally(() => setLoading(false));
   }, [fetchNotifs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchNotifs();
+    }, [fetchNotifs]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -118,13 +125,18 @@ export default function NotificationsScreen() {
       )}
 
       {notifs.length === 0 ? (
-        <View style={styles.center}>
+        <ScrollView
+          contentContainerStyle={styles.center}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} colors={[COLORS.primary]} />
+          }
+        >
           <View style={styles.emptyIconBox}>
             <Text style={styles.emptyIcon}>🔕</Text>
           </View>
           <Text style={styles.emptyTitle}>{t('noNotifications')}</Text>
           <Text style={styles.emptySub}>You'll receive updates here when the admin takes action on your registration.</Text>
-        </View>
+        </ScrollView>
       ) : (
         <FlatList
           data={notifs}

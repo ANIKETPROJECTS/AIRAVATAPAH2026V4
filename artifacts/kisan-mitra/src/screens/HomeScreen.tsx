@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   ScrollView, Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
@@ -27,13 +27,23 @@ export default function HomeScreen() {
   const stackNav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabNav = useNavigation<BottomTabNavigationProp<TabParamList>>();
 
-  useEffect(() => {
+  const fetchRecentNotifs = useCallback(() => {
     if (state.mobile) {
       api.getNotifications(state.mobile)
         .then((n) => setRecentNotifs(n.slice(0, 3)))
         .catch(() => {});
     }
   }, [state.mobile]);
+
+  useEffect(() => {
+    fetchRecentNotifs();
+  }, [fetchRecentNotifs]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecentNotifs();
+    }, [fetchRecentNotifs]),
+  );
 
   const initials = (farmer?.name && farmer.name !== '—')
     ? farmer.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
