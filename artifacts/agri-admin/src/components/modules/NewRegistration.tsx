@@ -886,12 +886,29 @@ export function extractProfileFromStates(
     }
   };
 
-  pick(["full_name", "name"], "name", ["aadhar"]);
+  /* Like pick() but strips OCR symbol artefacts (dandas, pipes, etc.) from the value. */
+  const pickName = (keywords: string[], field: keyof FarmerProfile, docTypes: DocTypeId[]) => {
+    if (out[field]) return;
+    for (const docId of docTypes) {
+      const state = allStates[docId];
+      if (state.status !== "complete") continue;
+      for (const sec of state.sections) {
+        for (const f of sec.fields) {
+          if (f.value && f.value !== "—" && fieldMatch(f, keywords)) {
+            out[field] = sanitizeName(f.value) || f.value;
+            return;
+          }
+        }
+      }
+    }
+  };
+
+  pickName(["full_name", "name"], "name", ["aadhar"]);
   pick(["aadhaar_number", "aadhaar", "uid", "uidai"], "aadhaar", ["aadhar"]);
   pick(["vid", "virtual_id"], "vid", ["aadhar"]);
   pick(["date_of_birth", "dob"], "dob", ["aadhar"]);
   pick(["gender"], "gender", ["aadhar"]);
-  pick(["father", "husband", "guardian", "care_of"], "fathersName", ["aadhar"]);
+  pickName(["father", "husband", "guardian", "care_of"], "fathersName", ["aadhar"]);
   pick(["mobile_number", "mobile"], "mobile", ["aadhar"]);
   pick(["address"], "address", ["aadhar"]);
   pick(["pincode", "pin_code", "pin code", "postal"], "pincode", ["aadhar"]);
@@ -911,14 +928,14 @@ export function extractProfileFromStates(
   pick(["customer_id"], "customerIdCif", ["bank_passbook"]);
   pick(["nominee_relationship"], "nomineeRelationship", ["bank_passbook"]);
   pick(["email"], "email", ["bank_passbook"]);
-  pick(["village"], "village", ["form7", "form8a", "form12"]);
-  pick(["taluka"], "taluka", ["form7", "form8a", "form12"]);
-  pick(["district"], "district", ["form7", "form8a", "form12"]);
+  pickName(["village"], "village", ["form7", "form8a", "form12"]);
+  pickName(["taluka"], "taluka", ["form7", "form8a", "form12"]);
+  pickName(["district"], "district", ["form7", "form8a", "form12"]);
   pick(["survey_number"], "surveyNumber", ["form7", "form12"]);
   pick(["pu_id"], "puId", ["form7"]);
   pick(["khate_number", "khate number"], "khateNumber", ["form7", "form8a", "form12"]);
   pick(["occupant_class"], "occupantClass", ["form7"]);
-  pick(["owner_names", "owner name"], "ownerNames", ["form7"]);
+  pickName(["owner_names", "owner name"], "ownerNames", ["form7"]);
   pick(["owner_share"], "ownerShare", ["form7"]);
   pick(["mode_of_acquisition"], "modeOfAcquisition", ["form7"]);
   pick(["total_area"], "land", ["form7", "form8a"]);
