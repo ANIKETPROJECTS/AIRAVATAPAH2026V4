@@ -10,6 +10,7 @@
   "scripts": {
     "build": "npm run build --workspace=artifacts/agri-admin && npm run build --workspace=artifacts/api-server",
     "dev": "pnpm --filter @workspace/agri-admin run dev",
+    "start": "node --enable-source-maps artifacts/api-server/dist/index.mjs",
     "typecheck": "tsc --build && npm run typecheck --workspaces --if-present"
   },
   "private": true,
