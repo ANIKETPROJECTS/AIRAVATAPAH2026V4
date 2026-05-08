@@ -48,12 +48,12 @@ You should see something like `eas-cli/18.x.x win32-x64 node-v22.x.x`.
 
 ## Step 3 — Download the kisan-mitra Folder (Fresh Copy)
 
-> ⚠️ **If you already downloaded this folder before, delete it and download a fresh copy.** The folder has been updated with Gradle build fixes — the old version will fail.
+> ⚠️ **Always delete your old folder and download a fresh copy before each build attempt.** Every time a fix is applied in Replit, you must re-download — the old folder on your computer will NOT have the fix.
 
 1. Open your Replit project
 2. Right-click the `artifacts/kisan-mitra` folder in the file tree
 3. Click **Download**
-4. A zip file will be downloaded — extract it to:
+4. **Delete** your old `C:\kisan-mitra` folder first, then extract the new zip to:
 
 ```
 C:\kisan-mitra\
@@ -77,6 +77,18 @@ C:\kisan-mitra\
 ```
 
 > If the `assets\` folder is missing, the build **will fail**. Make sure you downloaded the latest version from Replit.
+
+---
+
+## Step 3b — (Alternative) Fix Without Re-downloading
+
+If you do not want to re-download the whole folder, run this one command inside your existing `C:\kisan-mitra\kisan-mitra` folder to apply the latest fix:
+
+```cmd
+npm install react-native-safe-area-context@5.0.0 --legacy-peer-deps
+```
+
+Then continue with Step 8 (skip to the build command). Do **not** run `npm install` again after this — just run the build.
 
 ---
 
