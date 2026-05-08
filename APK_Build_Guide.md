@@ -82,14 +82,13 @@ C:\kisan-mitra\
 
 ## Step 3b — (Alternative) Fix Without Re-downloading
 
-If you do not want to re-download the whole folder, run just these two commands inside your existing folder:
+If you do not want to re-download the whole folder, run this one command inside your existing `C:\kisan-mitra\kisan-mitra` folder to apply the latest fix:
 
 ```cmd
-npm install
-eas build --platform android --profile production --no-build-cache
+npm install react-native-safe-area-context@5.0.0 --legacy-peer-deps
 ```
 
-The `npm install` now automatically patches the broken Kotlin file for RN 0.79 compatibility.
+Then continue with Step 8 (skip to the build command). Do **not** run `npm install` again after this — just run the build.
 
 ---
 
