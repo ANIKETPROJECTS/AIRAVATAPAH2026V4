@@ -1,0 +1,305 @@
+Running 'gradlew :app:assembleRelease' in /home/expo/workingdir/build/android
+Welcome to Gradle 8.13!
+Here are the highlights of this release:
+- Daemon JVM auto-provisioning
+ - Enhancements for Scala plugin and JUnit testing
+- Improvements for build authors and plugin developers
+For more details see https://docs.gradle.org/8.13/release-notes.html
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+> Configure project :expo-gradle-plugin:expo-autolinking-plugin-shared
+w: file:///home/expo/workingdir/build/node_modules/expo-modules-autolinking/android/expo-gradle-plugin/expo-autolinking-plugin-shared/build.gradle.kts:32:9: The expression is unused
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:settings-plugin:pluginDescriptors
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:pluginDescriptors
+> Task :gradle-plugin:settings-plugin:processResources
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:processResources
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:compileKotlin
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
+> Task :gradle-plugin:shared:jar
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileKotlin
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar
+> Task :gradle-plugin:settings-plugin:compileKotlin
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:classes
+> Task :gradle-plugin:settings-plugin:jar
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileKotlin
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:classes
+> Task :expo-gradle-plugin:expo-autolinking-settings-plugin:jar
+> Task :expo-gradle-plugin:expo-autolinking-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :expo-module-gradle-plugin:pluginDescriptors
+> Task :expo-module-gradle-plugin:processResources
+> Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors
+> Task :expo-gradle-plugin:expo-autolinking-plugin:processResources
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors
+> Task :gradle-plugin:react-native-gradle-plugin:processResources
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileKotlin
+w: file:///home/expo/workingdir/build/node_modules/expo-modules-autolinking/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt:29:71 Name shadowed: project
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileJava
+NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:classes
+> Task :expo-gradle-plugin:expo-autolinking-plugin:jar
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava
+NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:classes
+> Task :gradle-plugin:react-native-gradle-plugin:jar
+> Task :expo-module-gradle-plugin:compileKotlin
+w: file:///home/expo/workingdir/build/node_modules/expo-modules-core/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt:9:24 'targetSdk: Int?' is deprecated. Will be removed from library DSL in v9.0. Use testOptions.targetSdk or/and lint.targetSdk instead
+> Task :expo-module-gradle-plugin:compileJava NO-SOURCE
+> Task :expo-module-gradle-plugin:classes
+> Task :expo-module-gradle-plugin:jar
+> Configure project :
+[ExpoRootProject] Using the following versions:
+  - buildTools:  35.0.0
+  - minSdk:      24
+  - compileSdk:  35
+- targetSdk:   35
+  - ndk:         27.1.12297006
+  - kotlin:      1.9.25
+  - ksp:         1.9.25-1.0.20
+> Configure project :expo
+Using expo modules
+  - expo-constants (17.0.8)
+  - expo-document-picker (13.0.3)
+  - expo-image-loader (5.0.0)
+  - expo-image-picker (16.0.6)
+> Configure project :expo-modules-core
+Checking the license for package NDK (Side by side) 27.1.12297006 in /home/expo/Android/Sdk/licenses
+License for package NDK (Side by side) 27.1.12297006 accepted.
+Preparing "Install NDK (Side by side) 27.1.12297006 v.27.1.12297006".
+"Install NDK (Side by side) 27.1.12297006 v.27.1.12297006" ready.
+Installing NDK (Side by side) 27.1.12297006 in /home/expo/Android/Sdk/ndk/27.1.12297006
+"Install NDK (Side by side) 27.1.12297006 v.27.1.12297006" complete.
+"Install NDK (Side by side) 27.1.12297006 v.27.1.12297006" finished.
+> Configure project :expo
+  - expo-modules-core (2.5.0)
+- expo-secure-store (14.0.1)
+- [📦] expo-asset (11.1.7)
+- [📦] expo-file-system (18.1.11)
+- [📦] expo-font (13.3.2)
+- [📦] expo-keep-awake (14.1.4)
+> Task :expo-document-picker:preBuild UP-TO-DATE
+> Task :expo-document-picker:preReleaseBuild UP-TO-DATE
+> Task :expo-document-picker:writeReleaseAarMetadata
+> Task :expo-image-loader:preBuild UP-TO-DATE
+> Task :expo-image-loader:preReleaseBuild
+UP-TO-DATE
+> Task :expo-image-loader:writeReleaseAarMetadata
+> Task :expo-image-picker:preBuild UP-TO-DATE
+> Task :expo-image-picker:preReleaseBuild UP-TO-DATE
+> Task :expo-image-picker:writeReleaseAarMetadata
+> Task :expo-modules-core:preBuild UP-TO-DATE
+> Task :expo-modules-core:preReleaseBuild UP-TO-DATE
+> Task :expo-modules-core:writeReleaseAarMetadata
+> Task :expo-secure-store:preBuild UP-TO-DATE
+> Task :expo-secure-store:preReleaseBuild UP-TO-DATE
+> Task :expo-secure-store:writeReleaseAarMetadata
+> Task :react-native-async-storage_async-storage:preBuild UP-TO-DATE
+> Task :react-native-async-storage_async-storage:preReleaseBuild UP-TO-DATE
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-async-storage_async-storage:writeReleaseAarMetadata
+> Task :react-native-gesture-handler:preBuild UP-TO-DATE
+> Task :react-native-gesture-handler:preReleaseBuild UP-TO-DATE
+> Task :react-native-gesture-handler:writeReleaseAarMetadata
+> Task :react-native-safe-area-context:preBuild UP-TO-DATE
+> Task :react-native-safe-area-context:preReleaseBuild UP-TO-DATE
+> Task :react-native-safe-area-context:writeReleaseAarMetadata
+> Task :react-native-screens:preBuild UP-TO-DATE
+> Task :react-native-screens:preReleaseBuild
+UP-TO-DATE
+> Task :app:generateAutolinkingPackageList
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:preBuild
+> Task :app:preReleaseBuild
+> Task :react-native-screens:writeReleaseAarMetadata
+> Task :expo-document-picker:generateReleaseResValues
+> Task :app:generateReleaseBuildConfig
+> Task :expo-document-picker:generateReleaseResources
+> Task :expo-document-picker:packageReleaseResources
+> Task :expo-image-loader:generateReleaseResValues
+> Task :expo-image-loader:generateReleaseResources
+> Task :expo:generatePackagesList
+> Task :expo:preBuild
+> Task :expo:preReleaseBuild
+> Task :expo:writeReleaseAarMetadata
+> Task :expo:generateReleaseResValues
+> Task :expo-image-loader:packageReleaseResources
+> Task :expo-image-picker:generateReleaseResValues
+> Task :expo:generateReleaseResources
+> Task :expo-image-picker:generateReleaseResources
+> Task :expo:packageReleaseResources
+> Task :expo-modules-core:generateReleaseResValues
+> Task :expo-modules-core:generateReleaseResources
+> Task :expo-constants:createExpoConfig
+> Task :expo-constants:preBuild
+> Task :expo-constants:preReleaseBuild
+> Task :expo-modules-core:packageReleaseResources
+> Task :expo-constants:generateReleaseResValues
+> Task :expo-constants:writeReleaseAarMetadata
+> Task :expo-secure-store:generateReleaseResValues
+> Task :expo-constants:generateReleaseResources
+> Task :expo-secure-store:generateReleaseResources
+> Task :expo-constants:packageReleaseResources
+> Task :react-native-async-storage_async-storage:generateReleaseResValues
+> Task :react-native-async-storage_async-storage:generateReleaseResources
+> Task :react-native-async-storage_async-storage:packageReleaseResources
+The NODE_ENV environment variable is required but was not specified. Ensure the project is bundled with Expo CLI or NODE_ENV is set.
+Proceeding without mode-specific .env
+> Task :expo-image-picker:packageReleaseResources
+> Task :expo-secure-store:packageReleaseResources
+> Task :react-native-gesture-handler:generateReleaseResValues
+> Task :react-native-screens:generateReleaseResValues
+> Task :react-native-safe-area-context:generateReleaseResValues
+> Task :react-native-gesture-handler:generateReleaseResources
+> Task :react-native-safe-area-context:generateReleaseResources
+> Task :react-native-screens:generateReleaseResources
+> Task :react-native-safe-area-context:packageReleaseResources
+> Task :react-native-gesture-handler:packageReleaseResources
+> Task :expo:extractDeepLinksRelease
+> Task :expo-constants:extractDeepLinksRelease
+> Task :react-native-screens:packageReleaseResources
+> Task :expo-document-picker:extractDeepLinksRelease
+> Task :expo-document-picker:processReleaseManifest
+> Task :expo:processReleaseManifest
+> Task :expo-constants:processReleaseManifest
+> Task :expo-image-loader:extractDeepLinksRelease
+> Task :expo-image-picker:extractDeepLinksRelease
+> Task :expo-modules-core:extractDeepLinksRelease
+> Task :expo-image-loader:processReleaseManifest
+> Task :expo-secure-store:extractDeepLinksRelease
+> Task :expo-modules-core:processReleaseManifest
+/home/expo/workingdir/build/node_modules/expo-modules-core/android/src/main/AndroidManifest.xml:8:9-11:45 Warning:
+	meta-data#com.facebook.soloader.enabled@android:value was tagged at AndroidManifest.xml:8 to replace other declarations but no other declaration present
+> Task :react-native-async-storage_async-storage:extractDeepLinksRelease
+> Task :react-native-async-storage_async-storage:processReleaseManifest
+package="com.reactnativecommunity.asyncstorage" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativecommunity.asyncstorage" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/main/AndroidManifest.xml.
+> Task :expo-secure-store:processReleaseManifest
+> Task :expo-image-picker:processReleaseManifest
+> Task :react-native-screens:extractDeepLinksRelease
+> Task :react-native-safe-area-context:extractDeepLinksRelease
+> Task :react-native-gesture-handler:extractDeepLinksRelease
+> Task :react-native-gesture-handler:processReleaseManifest
+> Task :react-native-safe-area-context:processReleaseManifest
+package="com.th3rdwave.safeareacontext" found in source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.th3rdwave.safeareacontext" from the source AndroidManifest.xml: /home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/AndroidManifest.xml.
+> Task :react-native-screens:processReleaseManifest
+> Task :expo:compileReleaseLibraryResources
+> Task :expo-document-picker:compileReleaseLibraryResources
+> Task :expo-constants:compileReleaseLibraryResources
+> Task :expo-document-picker:parseReleaseLocalResources
+> Task :expo:parseReleaseLocalResources
+> Task :expo-constants:parseReleaseLocalResources
+> Task :expo:generateReleaseRFile
+> Task :expo-constants:generateReleaseRFile
+> Task :expo-document-picker:generateReleaseRFile
+> Task :expo-modules-core:compileReleaseLibraryResources
+> Task :expo-image-loader:compileReleaseLibraryResources
+> Task :expo-image-loader:parseReleaseLocalResources
+> Task :expo-image-picker:parseReleaseLocalResources
+> Task :expo-image-loader:generateReleaseRFile
+> Task :expo-image-picker:generateReleaseRFile
+> Task :expo-modules-core:parseReleaseLocalResources
+> Task :expo-secure-store:compileReleaseLibraryResources
+> Task :expo-modules-core:generateReleaseRFile
+> Task :expo-image-picker:compileReleaseLibraryResources
+> Task :react-native-async-storage_async-storage:compileReleaseLibraryResources
+> Task :react-native-gesture-handler:compileReleaseLibraryResources
+> Task :expo-secure-store:parseReleaseLocalResources
+> Task :react-native-async-storage_async-storage:parseReleaseLocalResources
+> Task :react-native-gesture-handler:parseReleaseLocalResources
+> Task :expo-secure-store:generateReleaseRFile
+> Task :react-native-async-storage_async-storage:generateReleaseRFile
+> Task :react-native-gesture-handler:generateReleaseRFile
+> Task :react-native-safe-area-context:compileReleaseLibraryResources
+> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-safe-area-context:parseReleaseLocalResources
+> Task :react-native-screens:parseReleaseLocalResources
+> Task :react-native-screens:compileReleaseLibraryResources
+> Task :react-native-safe-area-context:generateReleaseRFile
+> Task :expo-constants:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-constants:generateReleaseBuildConfig
+> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-screens:generateReleaseRFile
+> Task :expo:generateReleaseBuildConfig
+> Task :expo-document-picker:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-modules-core:generateReleaseBuildConfig
+> Task :expo-document-picker:generateReleaseBuildConfig
+> Task :expo-constants:javaPreCompileRelease
+> Task :expo-image-loader:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-document-picker:javaPreCompileRelease
+> Task :expo-image-picker:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-image-picker:generateReleaseBuildConfig
+> Task :expo-image-loader:generateReleaseBuildConfig
+> Task :expo-image-loader:javaPreCompileRelease
+> Task :expo-image-picker:javaPreCompileRelease
+> Task :expo-secure-store:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo:javaPreCompileRelease
+> Task :expo-secure-store:generateReleaseBuildConfig
+> Task :expo-secure-store:javaPreCompileRelease
+> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-gesture-handler:generateReleaseBuildConfig
+> Task :react-native-async-storage_async-storage:generateReleaseBuildConfig
+> Task :react-native-async-storage_async-storage:javaPreCompileRelease
+> Task :app:createBundleReleaseJsAndAssets
+Starting Metro Bundler
+Android Bundled 1114ms index.ts (882 modules)
+Writing bundle output to: /home/expo/workingdir/build/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle
+Writing sourcemap output to: /home/expo/workingdir/build/android/app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map
+Copying 6 asset files
+Done writing bundle output
+Done writing sourcemap output
+> Task :react-native-async-storage_async-storage:compileReleaseJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /home/expo/workingdir/build/node_modules/@react-native-async-storage/async-storage/android/src/javaPackage/java/com/reactnativecommunity/asyncstorage/AsyncStoragePackage.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+> Task :expo-modules-core:javaPreCompileRelease
+> Task :react-native-async-storage_async-storage:bundleLibCompileToJarRelease
+> Task :react-native-gesture-handler:javaPreCompileRelease
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-safe-area-context:generateReleaseBuildConfig
+> Task :react-native-gesture-handler:compileReleaseKotlin
+> Task :react-native-safe-area-context:compileReleaseKotlin FAILED
+e: file:///home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaProviderManager.kt:14:27 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaProviderManager.kt:14:62 Argument type mismatch: actual type is 'com.th3rdwave.safeareacontext.SafeAreaProviderManager', but 'U!' was expected.
+e: file:///home/expo/workingdir/build/node_modules/react-native-safe-area-context/android/src/main/java/com/th3rdwave/safeareacontext/SafeAreaProviderManager.kt:16:16 Return type of 'getDelegate' is not a subtype of the return type of the overridden member 'fun getDelegate(): ViewManagerDelegate<SafeAreaProvider!>!' defined in 'com/th3rdwave/safeareacontext/SafeAreaProviderManager'.
+> Task :react-native-gesture-handler:compileReleaseJavaWithJavac
+Note: /home/expo/workingdir/build/node_modules/react-native-gesture-handler/android/paper/src/main/java/com/swmansion/gesturehandler/NativeRNGestureHandlerModuleSpec.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+> Task :app:checkReleaseAarMetadata
+> Task :expo-modules-core:compileReleaseKotlin
+w: file:///home/expo/workingdir/build/node_modules/expo-modules-core/android/src/main/java/expo/modules/apploader/AppLoaderProvider.kt:34:52 Unchecked cast of 'java.lang.Class<*>!' to 'java.lang.Class<out expo.modules.apploader.HeadlessAppLoader>'.
+[Incubating] Problems report is available at: file:///home/expo/workingdir/build/android/build/reports/problems/problems-report.html
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+For more on this, please refer to https://docs.gradle.org/8.13/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+159 actionable tasks: 159 executed
+FAILURE: Build failed with an exception.
+* What went wrong:
+Execution failed for task ':react-native-safe-area-context:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+BUILD FAILED in 3m 16s
+Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.

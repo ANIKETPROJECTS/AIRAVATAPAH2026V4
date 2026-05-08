@@ -7,7 +7,8 @@
     "start": "expo start",
     "web": "expo start --web --port 8008",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "postinstall": "node patch-safe-area.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.5",
