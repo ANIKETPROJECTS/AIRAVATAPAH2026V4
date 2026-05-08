@@ -154,8 +154,10 @@ eas init
 ## Step 8 — Build the Production APK
 
 ```cmd
-eas build --platform android --profile production
+eas build --platform android --profile production --no-build-cache
 ```
+
+> ⚠️ Always use `--no-build-cache` to force a completely fresh build. Without it, EAS may reuse old cached packages from a previous failed build.
 
 ### What happens:
 1. EAS uploads your code to Expo's cloud servers

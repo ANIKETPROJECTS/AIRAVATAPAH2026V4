@@ -418,7 +418,7 @@ importers:
         specifier: ~2.24.0
         version: 2.24.0(react-native@0.79.2(@babel/core@7.29.0)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       react-native-safe-area-context:
-        specifier: ~5.0.0
+        specifier: 5.0.0
         version: 5.0.0(react-native@0.79.2(@babel/core@7.29.0)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       react-native-screens:
         specifier: ~4.10.0

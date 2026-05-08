@@ -1,0 +1,94 @@
+Microsoft Windows [Version 10.0.26200.8246]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\new\kisan-mitra\kisan-mitra>npm install
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated @xmldom/xmldom@0.7.13: this version has critical issues, please update to the latest version
+npm warn deprecated uuid@7.0.3: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+added 726 packages, and audited 727 packages in 32s
+
+64 packages are looking for funding
+  run `npm fund` for details
+
+9 vulnerabilities (4 moderate, 5 high)
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+C:\new\kisan-mitra\kisan-mitra>dir
+ Volume in drive C is ACER
+ Volume Serial Number is 9467-634A
+
+ Directory of C:\new\kisan-mitra\kisan-mitra
+
+08-05-2026  20:50    <DIR>          .
+08-05-2026  20:49    <DIR>          ..
+08-05-2026  20:49                22 .npmrc
+08-05-2026  20:49             1,474 app.json
+08-05-2026  20:49               606 App.tsx
+08-05-2026  20:49    <DIR>          assets
+08-05-2026  20:49               108 babel.config.js
+08-05-2026  20:49               785 eas.json
+08-05-2026  20:49               100 index.ts
+08-05-2026  20:50    <DIR>          node_modules
+08-05-2026  20:50           343,939 package-lock.json
+08-05-2026  20:49             1,114 package.json
+08-05-2026  20:49    <DIR>          src
+08-05-2026  20:49               150 tsconfig.json
+               9 File(s)        348,298 bytes
+               5 Dir(s)  130,232,799,232 bytes free
+
+C:\new\kisan-mitra\kisan-mitra>cat package.json
+'cat' is not recognized as an internal or external command,
+operable program or batch file.
+
+C:\new\kisan-mitra\kisan-mitra>type package.json
+{
+  "name": "kisan-mitra",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "web": "expo start --web --port 8008",
+    "android": "expo start --android",
+    "ios": "expo start --ios"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~5.0.5",
+    "@react-native-async-storage/async-storage": "2.1.0",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.11.0",
+    "expo": "~53.0.0",
+    "expo-build-properties": "~0.14.8",
+    "expo-constants": "~17.0.8",
+    "expo-document-picker": "~13.0.3",
+    "expo-image-picker": "~16.0.6",
+    "expo-secure-store": "~14.0.1",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.2",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-safe-area-context": "~5.0.0",
+    "react-native-screens": "~4.10.0",
+    "react-native-web": "~0.19.13"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@types/react": "~19.0.0",
+    "typescript": "~5.3.3"
+  }
+}
+
+C:\new\kisan-mitra\kisan-mitra>
