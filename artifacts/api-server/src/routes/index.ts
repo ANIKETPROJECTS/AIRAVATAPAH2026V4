@@ -9,6 +9,7 @@ import grievancesRouter from "./grievances";
 import notificationsRouter from "./notifications";
 import insuranceSubsidiesRouter from "./insurance-subsidies";
 import applicationsRouter from "./applications";
+import aiRouter from "./ai";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(grievancesRouter);
 router.use(notificationsRouter);
 router.use(insuranceSubsidiesRouter);
 router.use(applicationsRouter);
+router.use(aiRouter);
 
 export default router;

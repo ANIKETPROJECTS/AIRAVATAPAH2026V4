@@ -29,6 +29,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Description**: Maharashtra district officer portal — manage farmer registrations, scheme applications, OCR extraction, subsidies, grievances
 - **Tech**: React 19, react-router-dom, Tailwind v3, shadcn/ui, Recharts, DM Sans/DM Serif Display fonts
 - **Key screens**: Dashboard, New Registration (OCR wizard), Farmer Registry, Scheme Applications, Subsidy Applications (was "Subsidy Management"), Insurance Claim Applications (was "Insurance Claims"), Grievance Management, Reports & Analytics, Farmer App Preview
+- **AI Panels** (on farmer sub-pages): `AiRecommendationsPanel` on Applications page (right sidebar, green header) — calls `POST /api/ai/recommendations`; `AiGrievanceAdvisorPanel` on Grievances page (right sidebar, teal header) — calls `POST /api/ai/grievance-advice`; both use GPT-5.4 via OpenAI integration, generate on demand with a button click
 - **Sidebar groups**: "Applications" hover-flyout → Scheme Applications / Subsidy Applications / Insurance Claim Applications; "Database" hover-flyout → All Schemes / All Insurance / All Subsidies
 - **New Registration module**: 5 document upload cards (Form 7, Form 12, Form 8A, Aadhaar, Bank Passbook); uploads to `/api/extract`, polls `/api/extract/:requestId`, displays structured extracted fields, auto-saves to MongoDB when phone provided
 - **Language switching**: Marathi/Hindi/English on New Registration page. Translation maps: `SECTION_TITLE_MAP`, `PROFILE_FIELD_LABEL_MAP`, `PROFILE_SECTION_DOC_LABELS`, `FIELD_LABEL_MAP`, `UI_T`. Helpers: `ui()`, `tSec()`, `tField()`, `tProfileField()`
@@ -62,6 +63,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `POST /api/applications` — submit application (body: `type`, `farmerId`, `farmerName`, `mobile`, `district`, `village`, `schemeId`, `schemeName`, `schemeType`, `crop`, `land`, `lossDescription`, `source`)
   - `PATCH /api/applications/:id` — update application status (body: `status`, `adminReply`, `adminNotes`)
   - `DELETE /api/applications/:id` — delete application by applicationId
+  - `POST /api/ai/recommendations` — AI scheme/insurance/subsidy recommendations for a farmer (body: `farmer`, `appliedIds`); fetches full catalog from DB; returns `{ summary, recommendations[], tips[] }`
+  - `POST /api/ai/grievance-advice` — AI resolution guidance for admin (body: `farmer`, `grievances[]`); returns `{ overview, urgentAction, advice[] }`
 - **MongoDB**: Atlas cluster (`apnaapp` DB); collections: `farmers`, `users`, `schemes`, `push_tokens`, `otps`, `extract_requests`, `grievances`
 - **Embedded in farmer doc**: `notifications[]` (all notification objects) and `documents[]` (base64 doc images) — no separate collections for these
 - **Secrets**: `DATALAB_API_KEY`, `MONGODB_URI`, `SESSION_SECRET`

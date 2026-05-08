@@ -3,7 +3,7 @@ import {
   Search, Filter, ArrowUpDown, AlertCircle, FileText,
   CheckCircle2, XCircle, Calendar, Info, Plus, X, Send,
   ChevronDown, IndianRupee, Loader2, RefreshCw, Shield,
-  AlertTriangle, LifeBuoy,
+  AlertTriangle, LifeBuoy, Sparkles,
 } from "lucide-react";
 import type { FarmerRecord, DocRecord, OcrDocSection } from "@/data/farmerApi";
 import { Pill, GSTATUS, GPRIORITY } from "@/components/modules/VerifiedFarmerCard";
@@ -696,6 +696,240 @@ function RaiseGrievanceModal({ farmer, onClose, onSubmitted }: {
   );
 }
 
+/* ══════════════════════════════════════════════════════
+   AI PANELS
+══════════════════════════════════════════════════════ */
+
+/* ─── Types ─── */
+interface AiRecommendation {
+  id: string;
+  name: string;
+  type: string;
+  priority: "High" | "Medium" | "Low";
+  reason: string;
+  benefit: string;
+  applyFirst?: boolean;
+}
+interface AiRecommendationsResult {
+  summary: string;
+  recommendations: AiRecommendation[];
+  tips: string[];
+}
+interface AiGrievanceItem {
+  grievanceId: string;
+  category: string;
+  subject: string;
+  status: string;
+  priority: string;
+  resolution: string;
+  steps: string[];
+  estimatedTime: string;
+  escalate: boolean;
+}
+interface AiGrievanceResult {
+  overview: string;
+  urgentAction: string | null;
+  advice: AiGrievanceItem[];
+}
+
+/* ─── Scheme / Insurance / Subsidy Recommendations Panel ─── */
+function AiRecommendationsPanel({ farmer }: { farmer: FarmerRecord }) {
+  const [result, setResult] = useState<AiRecommendationsResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const generate = async () => {
+    setLoading(true); setError(""); setResult(null);
+    try {
+      const res = await fetch("/api/ai/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ farmer, appliedIds: [] }),
+      });
+      if (!res.ok) throw new Error((await res.json() as { error: string }).error || "Failed");
+      setResult(await res.json() as AiRecommendationsResult);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const PRIORITY_COLOR: Record<string, string> = {
+    High: "bg-red-50 text-red-700 border-red-200",
+    Medium: "bg-amber-50 text-amber-700 border-amber-200",
+    Low: "bg-slate-100 text-slate-600 border-slate-200",
+  };
+  const TYPE_COLOR: Record<string, string> = {
+    scheme: "bg-blue-50 text-blue-700",
+    insurance: "bg-purple-50 text-purple-700",
+    subsidy: "bg-emerald-50 text-emerald-700",
+  };
+
+  return (
+    <div className="w-80 flex-shrink-0">
+      <div className="border border-emerald-200 rounded-2xl overflow-hidden sticky top-4 bg-white shadow-sm">
+        <div className="bg-gradient-to-r from-emerald-700 to-green-600 px-4 py-3.5 flex items-center gap-2.5">
+          <Sparkles className="h-4 w-4 text-emerald-200 flex-shrink-0" />
+          <div>
+            <div className="font-bold text-white text-sm">AI Recommendations</div>
+            <div className="text-emerald-200 text-[10px]">Scheme · Insurance · Subsidy Advisor</div>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          {!result && !loading && (
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Get AI-powered scheme, insurance, and subsidy recommendations tailored to this farmer's land, crops, and district.
+            </p>
+          )}
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-700 text-white text-sm font-semibold rounded-xl hover:bg-emerald-800 disabled:opacity-60 transition-colors shadow-sm"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {loading ? "Analysing..." : result ? "Regenerate" : "Generate Advice"}
+          </button>
+          {error && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+          {result && (
+            <div className="space-y-3 mt-1">
+              <div className="text-xs text-slate-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 leading-relaxed">{result.summary}</div>
+              {result.recommendations.map(r => (
+                <div key={r.id} className={`border rounded-xl overflow-hidden ${r.applyFirst ? "border-emerald-400 shadow-sm" : "border-slate-200"}`}>
+                  <div className={`px-3 py-2.5 ${r.applyFirst ? "bg-emerald-50" : "bg-slate-50"}`}>
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="text-[11px] font-bold text-slate-800 leading-tight">{r.name}</div>
+                      {r.applyFirst && <span className="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold flex-shrink-0">TOP PICK</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${PRIORITY_COLOR[r.priority] ?? ""}`}>{r.priority}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${TYPE_COLOR[r.type] ?? "bg-slate-100 text-slate-600"}`}>{r.type}</span>
+                    </div>
+                  </div>
+                  <div className="px-3 py-2 bg-white space-y-1.5">
+                    <p className="text-[11px] text-slate-700 leading-relaxed">{r.reason}</p>
+                    <p className="text-[10px] text-emerald-700 font-medium">✓ {r.benefit}</p>
+                  </div>
+                </div>
+              ))}
+              {result.tips?.length > 0 && (
+                <div className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2.5 space-y-1">
+                  <div className="text-[9px] font-bold text-amber-700 uppercase tracking-wide mb-1.5">Tips for Officer</div>
+                  {result.tips.map((tip, i) => (
+                    <p key={i} className="text-[10px] text-amber-800 leading-relaxed">• {tip}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Grievance Resolution Advisor Panel ─── */
+function AiGrievanceAdvisorPanel({ farmer, grievances }: { farmer: FarmerRecord; grievances: ApiGrievance[] }) {
+  const [result, setResult] = useState<AiGrievanceResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const generate = async () => {
+    if (!grievances.length) return;
+    setLoading(true); setError(""); setResult(null);
+    try {
+      const res = await fetch("/api/ai/grievance-advice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ farmer, grievances }),
+      });
+      if (!res.ok) throw new Error((await res.json() as { error: string }).error || "Failed");
+      setResult(await res.json() as AiGrievanceResult);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const PRIORITY_BORDER: Record<string, string> = {
+    High: "border-red-300 bg-red-50/50",
+    Medium: "border-amber-200 bg-amber-50/50",
+    Low: "border-slate-200 bg-slate-50",
+  };
+
+  return (
+    <div className="w-80 flex-shrink-0">
+      <div className="border border-teal-200 rounded-2xl overflow-hidden sticky top-4 bg-white shadow-sm">
+        <div className="bg-gradient-to-r from-teal-700 to-emerald-600 px-4 py-3.5 flex items-center gap-2.5">
+          <Sparkles className="h-4 w-4 text-teal-200 flex-shrink-0" />
+          <div>
+            <div className="font-bold text-white text-sm">AI Grievance Advisor</div>
+            <div className="text-teal-200 text-[10px]">Step-by-step Resolution Guidance</div>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          {!result && !loading && (
+            <p className="text-xs text-slate-500 leading-relaxed">
+              {grievances.length
+                ? "Get AI-powered resolution steps for all open and in-progress grievances."
+                : "No grievances to advise on yet."}
+            </p>
+          )}
+          <button
+            onClick={generate}
+            disabled={loading || grievances.length === 0}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-800 disabled:opacity-50 transition-colors shadow-sm"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {loading ? "Analysing..." : result ? "Regenerate" : "Advise Me"}
+          </button>
+          {error && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
+          {result && (
+            <div className="space-y-3 mt-1">
+              <div className="text-xs text-slate-700 bg-teal-50 border border-teal-200 rounded-xl px-3 py-2.5 leading-relaxed">{result.overview}</div>
+              {result.urgentAction && (
+                <div className="bg-red-50 border border-red-300 rounded-xl px-3 py-2.5">
+                  <div className="text-[9px] font-bold text-red-600 uppercase tracking-wide mb-1">⚡ Urgent Action</div>
+                  <p className="text-[11px] text-red-700 leading-relaxed">{result.urgentAction}</p>
+                </div>
+              )}
+              {result.advice.map(a => (
+                <div key={a.grievanceId} className={`border rounded-xl overflow-hidden ${PRIORITY_BORDER[a.priority] ?? "border-slate-200"}`}>
+                  <div className="px-3 py-2.5">
+                    <div className="flex items-start justify-between gap-1.5 mb-1">
+                      <div className="text-[11px] font-bold text-slate-800 leading-tight">{a.subject}</div>
+                      {a.escalate && <span className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-bold flex-shrink-0">ESCALATE</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-slate-200 text-slate-600">{a.category}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white border border-slate-200 text-slate-500">{a.grievanceId}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-700 leading-relaxed mb-2">{a.resolution}</p>
+                    {a.steps?.length > 0 && (
+                      <div className="space-y-1 mb-2">
+                        {a.steps.map((step, i) => (
+                          <div key={i} className="flex gap-1.5">
+                            <span className="text-[9px] font-bold text-teal-700 flex-shrink-0 mt-0.5">{i + 1}.</span>
+                            <p className="text-[10px] text-slate-600 leading-relaxed">{step}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {a.estimatedTime && (
+                      <div className="text-[10px] text-teal-700 font-medium">⏱ {a.estimatedTime}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function GrievancesPage({ farmer }: { farmer: FarmerRecord }) {
   const [grievances, setGrievances] = useState<ApiGrievance[]>([]);
   const [loading, setLoading] = useState(true);
@@ -750,7 +984,8 @@ export function GrievancesPage({ farmer }: { farmer: FarmerRecord }) {
   );
 
   return (
-    <div className="space-y-5">
+    <div className="flex gap-5 items-start">
+      <div className="flex-1 min-w-0 space-y-5">
       {showModal && (
         <RaiseGrievanceModal
           farmer={farmer}
@@ -834,6 +1069,8 @@ export function GrievancesPage({ farmer }: { farmer: FarmerRecord }) {
           </div>
         )
       }
+      </div>
+      <AiGrievanceAdvisorPanel farmer={farmer} grievances={grievances} />
     </div>
   );
 }
@@ -964,29 +1201,32 @@ export function AllApplicationsPage({ farmer }: { farmer: FarmerRecord }) {
   ];
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-1 border-b border-border pb-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all -mb-px ${
-              activeTab === tab.key
-                ? "border-secondary text-secondary"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex gap-5 items-start">
+      <div className="flex-1 min-w-0 space-y-5">
+        <div className="flex items-center gap-1 border-b border-border pb-0 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-all -mb-px ${
+                activeTab === tab.key
+                  ? "border-secondary text-secondary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-      <div>
-        {activeTab === "scheme"    && <SchemeApplicationsPage    farmer={farmer} />}
-        {activeTab === "insurance" && <InsuranceApplicationsPage farmer={farmer} />}
-        {activeTab === "subsidy"   && <SubsidyApplicationsPage   farmer={farmer} />}
+        <div>
+          {activeTab === "scheme"    && <SchemeApplicationsPage    farmer={farmer} />}
+          {activeTab === "insurance" && <InsuranceApplicationsPage farmer={farmer} />}
+          {activeTab === "subsidy"   && <SubsidyApplicationsPage   farmer={farmer} />}
+        </div>
       </div>
+      <AiRecommendationsPanel farmer={farmer} />
     </div>
   );
 }
