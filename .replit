@@ -53,7 +53,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/api-server && pnpm run build && PORT=8000 NODE_ENV=development node --enable-source-maps ./dist/index.mjs"
+args = "pnpm --filter @workspace/api-server run build && PORT=8000 NODE_ENV=development node --enable-source-maps artifacts/api-server/dist/index.mjs"
 waitForPort = 8000
 
 [[workflows.workflow]]
@@ -76,7 +76,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/kisan-mitra && ./node_modules/.bin/expo start --web --port 8008"
+args = "pnpm --filter @workspace/kisan-mitra run web"
 waitForPort = 8008
 
 [agent]
@@ -103,10 +103,6 @@ externalPort = 8000
 [[ports]]
 localPort = 8008
 externalPort = 8008
-
-[[ports]]
-localPort = 8080
-externalPort = 8080
 
 [[ports]]
 localPort = 8081
