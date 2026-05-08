@@ -1202,7 +1202,8 @@ export function FieldsTable({
               </table>
             </div>
           )}
-          {sec.tables.map((tbl) => tbl.rows.length > 0 && (
+          {/* For form12, skip the structured sec.tables — we show the raw HTML table below instead */}
+          {docId !== "form12" && sec.tables.map((tbl) => tbl.rows.length > 0 && (
             <div key={tbl.key} className="mt-3">
               <p className="text-xs font-semibold text-muted-foreground mb-1">{tSec(tbl.label, lang)}</p>
               <div className="overflow-x-auto rounded-md border border-border">
@@ -1226,13 +1227,38 @@ export function FieldsTable({
         </div>
       ))}
 
-      {rawTables.length > 0 && (
+      {/* Form 12: render all raw tables as full HTML (preserves multi-row headers) under a single CROP heading */}
+      {docId === "form12" && rawTables.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {lang === "mr" ? "पीक" : lang === "hi" ? "फसल" : "Crop"}
+          </p>
+          <div className="border-l-4 border-l-green-400 bg-card border border-border rounded-md p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-green-700 mb-3">
+              {lang === "mr" ? "पीक पाहणी नोंदणी" : lang === "hi" ? "फसल निरीक्षण रजिस्टर" : "Crop Inspection Register"}
+            </p>
+            <div className="space-y-4">
+              {rawTables.map((tbl, idx) => (
+                <div key={tbl.blockId ?? idx} className="overflow-x-auto">
+                  <div
+                    className="[&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:bg-muted/40 [&_th]:p-2 [&_th]:text-left [&_th]:align-top [&_td]:border [&_td]:border-border [&_td]:p-2 [&_td]:align-top text-foreground"
+                    dangerouslySetInnerHTML={{ __html: cleanDocHtml(tbl.html) }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All other documents: show raw tables under SOURCE DOCUMENT TABLES header */}
+      {docId !== "form12" && rawTables.length > 0 && (
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{ui("sourceDocTables", lang)}</p>
           {rawTables.map((tbl, idx) => (
             <div key={tbl.blockId ?? idx} className="border-l-4 border-l-orange-400 bg-card border border-border rounded-md p-4">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-700 mb-3">{ui("table", lang)} {idx + 1}</p>
-              {docId === "form7" || docId === "form12" ? (
+              {docId === "form7" ? (
                 <SpannedTable headers={tbl.headers} rows={tbl.rows} lang={lang} />
               ) : (
                 <div
@@ -2673,7 +2699,7 @@ export function FarmerProfileCard({
                     </div>
                   )}
 
-                  {/* Form 12: Full raw spanned table (single table, full columns) */}
+                  {/* Form 12: Full raw table rendered from HTML (preserves all multi-row headers) */}
                   {section.id === "form12" && form12RawTables.length > 0 && (
                     <div className="space-y-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -2681,13 +2707,18 @@ export function FarmerProfileCard({
                       </p>
                       <div className="border-l-4 border-l-green-400 bg-card border border-border rounded-md p-4">
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-green-700 mb-3">
-                          {lang === "mr" ? "पीक पाहणी नोंदणी" : lang === "hi" ? "फसल निरीक्षण रजिस्टर" : "Crop Inspection Register"} <span className="normal-case font-normal text-muted-foreground ml-1">— {ui("clickToEdit", lang)}</span>
+                          {lang === "mr" ? "पीक पाहणी नोंदणी" : lang === "hi" ? "फसल निरीक्षण रजिस्टर" : "Crop Inspection Register"}
                         </p>
-                        <EditableSpannedTable
-                          headers={form12RawTables[0].headers}
-                          rows={form12RawTables[0].rows}
-                          lang={lang}
-                        />
+                        <div className="space-y-4">
+                          {form12RawTables.map((tbl, idx) => (
+                            <div key={tbl.blockId ?? idx} className="overflow-x-auto">
+                              <div
+                                className="[&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:bg-muted/40 [&_th]:p-2 [&_th]:text-left [&_th]:align-top [&_td]:border [&_td]:border-border [&_td]:p-2 [&_td]:align-top text-foreground"
+                                dangerouslySetInnerHTML={{ __html: cleanDocHtml(tbl.html) }}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
