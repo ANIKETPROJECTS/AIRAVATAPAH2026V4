@@ -2364,12 +2364,14 @@ function EditableHtmlTable({
   profile,
   onChange,
   lang = "mr",
+  syncProfileToTable = true,
 }: {
   html: string;
   colToProfile: Record<number, keyof FarmerProfile>;
   profile: FarmerProfile;
   onChange: (field: keyof FarmerProfile, value: string) => void;
   lang?: LangCode;
+  syncProfileToTable?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -2395,8 +2397,11 @@ function EditableHtmlTable({
   }, [html]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync profile fields → table cells (DOM direct, no state)
+  // Only active when syncProfileToTable=true (the Form 8A extraction tab).
+  // In the Farmer Profile tab this is disabled to preserve the exact extracted values.
   const { land, totalAssessment, totalDamageInherited, totalZpCess, totalGpCess, totalRecovery, grandTotal } = profile;
   useEffect(() => {
+    if (!syncProfileToTable) return;
     if (!containerRef.current) return;
     containerRef.current.querySelectorAll<HTMLTableRowElement>("tr").forEach(row => {
       row.querySelectorAll<HTMLTableCellElement>("td").forEach((cell, ci) => {
@@ -2408,7 +2413,7 @@ function EditableHtmlTable({
       });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [land, totalAssessment, totalDamageInherited, totalZpCess, totalGpCess, totalRecovery, grandTotal]);
+  }, [syncProfileToTable, land, totalAssessment, totalDamageInherited, totalZpCess, totalGpCess, totalRecovery, grandTotal]);
 
   const handleInput = useCallback((e: React.FormEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -2684,6 +2689,7 @@ export function FarmerProfileCard({
                               profile={profile}
                               onChange={onChange}
                               lang={lang}
+                              syncProfileToTable={false}
                             />
                           </div>
                           {idx === 0 && numCols > 0 && (
