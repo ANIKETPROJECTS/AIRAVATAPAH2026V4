@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Sparkles, FileText, User, MapPin, Landmark, Shield, ChevronDown, ChevronUp, Edit2, Save, XCircle, Trash2, Loader2, Smartphone } from "lucide-react";
 import { apiUpdateFarmer, apiDeleteFarmer, type FarmerRecord, type DocRecord, type OcrDocSection } from "@/data/farmerApi";
+import { SpannedTable } from "@/components/modules/NewRegistration";
 
 interface Props {
   farmer: FarmerRecord;
@@ -436,7 +437,22 @@ export default function FarmerDetailModal({ farmer, onClose, onDeleted, onUpdate
                             </div>
                           </div>
                         ))}
-                        {fields.length === 0 && arrayFields.length === 0 && (
+                        {/* Form 12: render full raw crop table from extractionData */}
+                        {sec === "form12" && (() => {
+                          const rawTables = farmer.extractionData?.["form12"]?.rawTables ?? [];
+                          if (rawTables.length === 0) return null;
+                          const tbl = rawTables[0];
+                          return (
+                            <div className="mt-3">
+                              <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 mb-2">Crop Inspection Register</div>
+                              <SpannedTable headers={tbl.headers} rows={tbl.rows} lang="en" />
+                            </div>
+                          );
+                        })()}
+                        {fields.length === 0 && arrayFields.length === 0 && !(farmer.extractionData?.["form12"]?.rawTables?.length) && sec === "form12" && (
+                          <span className="text-xs text-muted-foreground">No text fields extracted</span>
+                        )}
+                        {fields.length === 0 && arrayFields.length === 0 && sec !== "form12" && (
                           <span className="text-xs text-muted-foreground">No text fields extracted</span>
                         )}
                       </div>
