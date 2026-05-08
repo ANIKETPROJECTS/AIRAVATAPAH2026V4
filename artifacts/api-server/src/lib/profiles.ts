@@ -321,6 +321,31 @@ function nonEmpty(v: string | undefined): string | undefined {
 }
 
 /**
+ * Clean a human-readable name or place field by stripping OCR artefacts:
+ * table-border pipe characters `|`, parenthesised groups that contain only
+ * symbols, backslashes, and other stray punctuation that should not appear
+ * in a village name, person name, taluka, or district.
+ * Letters (Latin, Devanagari), digits, spaces, and meaningful hyphens are kept.
+ */
+function cleanName(v: string | undefined): string | undefined {
+  if (typeof v !== "string") return undefined;
+  let s = v
+    // Remove parenthesised groups that contain only symbols / whitespace
+    .replace(/\([|,.\-/\\*#@!^~`_=+<>:;\s]*\)/g, "")
+    // Remove all pipe characters (common OCR table-border artefact)
+    .replace(/\|/g, "")
+    // Remove other stray symbol artefacts
+    .replace(/[\\#@!^~`_=+<>]/g, "")
+    // Collapse multiple spaces
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  // Strip leading/trailing punctuation only
+  s = s.replace(/^[,.\-/;:]+|[,.\-/;:]+$/g, "").trim();
+  if (!s || s === "—" || s === "-" || s === "null") return undefined;
+  return s;
+}
+
+/**
  * Strip trailing administrative annotations from a survey number string.
  * Form 8A cells often print notes like 'भूमिअभिलेख निर्णयात्' in the same
  * cell as the survey number (e.g. '77/3 भूमिअभिलेख निर्णयात्').
@@ -857,12 +882,12 @@ export function mapExtractionToSection(
         );
       }
       const data: AadharSubdoc = stripUndefined({
-        name: nonEmpty(fields["full_name"]),
+        name: cleanName(fields["full_name"]),
         aadhaarNumber: nonEmpty(fields["aadhaar_number"]),
         vid: nonEmpty(fields["vid"]),
         dateOfBirth: nonEmpty(fields["date_of_birth"]),
         gender: nonEmpty(fields["gender"]),
-        fathersOrHusbandsName: nonEmpty(fields["fathers_or_husbands_name"]),
+        fathersOrHusbandsName: cleanName(fields["fathers_or_husbands_name"]),
         address: nonEmpty(fields["address"]),
         pincode: nonEmpty(fields["pincode"]),
         state: nonEmpty(fields["state"]),
@@ -942,7 +967,7 @@ export function mapExtractionToSection(
     case "form7": {
       const ownerNamesCsv = nonEmpty(fields["owner_names"]);
       const ownerNames = ownerNamesCsv
-        ? ownerNamesCsv.split(/\s*,\s*/).filter(Boolean)
+        ? ownerNamesCsv.split(/\s*,\s*/).map(cleanName).filter((n): n is string => !!n)
         : undefined;
 
       const oldMutationNumbersCsv = nonEmpty(fields["old_mutation_numbers"]);
@@ -961,7 +986,7 @@ export function mapExtractionToSection(
           const v = row.values as Record<string, string>;
           const entry = stripUndefined({
             khateNumber: nonEmpty(v["khate_number"]),
-            ownerName: nonEmpty(v["owner_name"]),
+            ownerName: cleanName(v["owner_name"]),
             area: nonEmpty(v["area"]),
             assessment: nonEmpty(v["assessment"]),
             collectionCharges: nonEmpty(v["collection_charges"]),
@@ -986,9 +1011,9 @@ export function mapExtractionToSection(
       const textBlocks = extractTextBlocksFromMarkerJson(marker?.json);
 
       const data: Form7Subdoc = stripUndefined({
-        village: nonEmpty(fields["village"]),
-        taluka: nonEmpty(fields["taluka"]),
-        district: nonEmpty(fields["district"]),
+        village: cleanName(fields["village"]),
+        taluka: cleanName(fields["taluka"]),
+        district: cleanName(fields["district"]),
         surveyNumber: cleanSurveyNumber(fields["survey_number"]),
         puId: nonEmpty(fields["pu_id"]),
         occupantClass: nonEmpty(fields["occupant_class"]),
@@ -1001,7 +1026,7 @@ export function mapExtractionToSection(
         collectionCharges: nonEmpty(fields["collection_charges"]),
         nonAgriculturalArea: nonEmpty(fields["non_agricultural_area"]),
         nonCultivatedArea: nonEmpty(fields["non_cultivated_area"]),
-        tenantName: nonEmpty(fields["tenant_name"]),
+        tenantName: cleanName(fields["tenant_name"]),
         tenantRent: nonEmpty(fields["tenant_rent"]),
         otherRights: nonEmpty(fields["other_rights"]),
         encumbrances: nonEmpty(fields["encumbrances"]),
@@ -1061,9 +1086,9 @@ export function mapExtractionToSection(
       const htmlNoImages = html ? stripImgTags(html) : undefined;
 
       const data: Form12Subdoc = stripUndefined({
-        village: nonEmpty(fields["village"]),
-        taluka: nonEmpty(fields["taluka"]),
-        district: nonEmpty(fields["district"]),
+        village: cleanName(fields["village"]),
+        taluka: cleanName(fields["taluka"]),
+        district: cleanName(fields["district"]),
         surveyNumber: cleanSurveyNumber(fields["survey_number"]),
         khateNumber: nonEmpty(fields["khate_number"]),
         cropEntries: cropEntries.length > 0 ? cropEntries : undefined,
@@ -1079,7 +1104,7 @@ export function mapExtractionToSection(
     case "form8a": {
       const khatedarNamesCsv = nonEmpty(fields["khatedar_names"]);
       const khatedarNames = khatedarNamesCsv
-        ? khatedarNamesCsv.split(/\s*,\s*/).filter(Boolean)
+        ? khatedarNamesCsv.split(/\s*,\s*/).map(cleanName).filter((n): n is string => !!n)
         : undefined;
 
       // Pull every row of the holdings table. The structured extractor is
@@ -1095,7 +1120,7 @@ export function mapExtractionToSection(
         .map((row) => {
           const v = row.values as Record<string, string>;
           const entry = stripUndefined({
-            villageForm6Entry: nonEmpty(v["village_form_6_entry"]),
+            villageForm6Entry: cleanName(v["village_form_6_entry"]),
             surveyNumberWithSubdivision: cleanSurveyNumber(
               v["survey_number_with_subdivision"],
             ),
@@ -1130,9 +1155,9 @@ export function mapExtractionToSection(
       const data: Form8aSubdoc = stripUndefined({
         year: nonEmpty(fields["year"]),
         reportDate: nonEmpty(fields["report_date"]),
-        village: nonEmpty(fields["village"]),
-        taluka: nonEmpty(fields["taluka"]),
-        district: nonEmpty(fields["district"]),
+        village: cleanName(fields["village"]),
+        taluka: cleanName(fields["taluka"]),
+        district: cleanName(fields["district"]),
         khateNumber: nonEmpty(fields["khate_number"]),
         accountType: nonEmpty(fields["account_type"]),
         khatedarNames,
