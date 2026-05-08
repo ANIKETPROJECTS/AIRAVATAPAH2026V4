@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#14532D"
     },
@@ -17,6 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#14532D"
       },
       "package": "com.agrimh.krishisuvidha"
@@ -32,7 +34,9 @@
           "photosPermission": "Allow कृषी सुविधा to access your photos to upload documents.",
           "cameraPermission": "Allow कृषी सुविधा to use your camera to capture documents."
         }
-      ]
+      ],
+      "expo-document-picker",
+      "expo-secure-store"
     ]
   }
 }
