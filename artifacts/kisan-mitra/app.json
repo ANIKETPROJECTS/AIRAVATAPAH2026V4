@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#14532D"
       },
-      "package": "com.agrimh.krishisuvidha"
+      "package": "com.agrimh.krishisuvidha",
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -36,8 +37,7 @@
             "targetSdkVersion": 35,
             "buildToolsVersion": "35.0.0",
             "kotlinVersion": "1.9.25",
-            "ndkVersion": "27.1.12297006",
-            "newArchEnabled": false
+            "ndkVersion": "27.1.12297006"
           }
         }
       ],
@@ -50,6 +50,12 @@
       ],
       "expo-document-picker",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b85ae76e-87e2-49d2-8379-eb7e32ee648d"
+      }
+    },
+    "owner": "krushisuvidha"
   }
 }
