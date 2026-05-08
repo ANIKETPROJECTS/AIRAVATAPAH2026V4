@@ -13,25 +13,26 @@ Before starting, make sure you have the following installed on your Windows mach
 | Tool | Download Link |
 |------|--------------|
 | Node.js (v18 or higher) | https://nodejs.org |
-| Git | https://git-scm.com |
+
+> **Note:** On Windows, use **Command Prompt** (cmd). `ls` does not work on Windows — use `dir` instead. `clear` does not work on Windows — use `cls` instead.
 
 ---
 
 ## Step 1 — Install EAS CLI
 
-Open **Command Prompt** or **PowerShell** and run:
+Open **Command Prompt** and run:
 
-```bash
+```cmd
 npm install -g eas-cli
 ```
 
 Verify it installed correctly:
 
-```bash
+```cmd
 eas --version
 ```
 
-You should see a version number like `eas-cli/16.x.x`.
+You should see something like `eas-cli/18.x.x win32-x64 node-v22.x.x`.
 
 ---
 
@@ -47,38 +48,47 @@ You should see a version number like `eas-cli/16.x.x`.
 
 ---
 
-## Step 3 — Get the kisan-mitra Folder
+## Step 3 — Download the kisan-mitra Folder
 
-You need the `artifacts/kisan-mitra` folder from your project. You can get it in one of two ways:
+You need the `artifacts/kisan-mitra` folder from your Replit project.
 
-**Option A — Download from Replit:**
 1. Open your Replit project
-2. Right-click the `artifacts/kisan-mitra` folder
+2. Right-click the `artifacts/kisan-mitra` folder in the file tree
 3. Click **Download**
-4. Extract the zip on your machine
+4. A zip file will be downloaded — extract it to a folder on your machine
 
-**Option B — Copy from your VPS:**
-```bash
-scp -r user@your-vps-ip:/path/to/project/artifacts/kisan-mitra C:\krushi-build\kisan-mitra
+For example, extract it so the path looks like:
 ```
+C:\kisan-mitra\
+```
+
+> Make sure you are inside the folder that contains `package.json`, `app.json`, `eas.json`, `App.tsx` etc. — not inside an extra nested folder.
 
 ---
 
-## Step 4 — Open the kisan-mitra Folder in Terminal
+## Step 4 — Open Command Prompt in the kisan-mitra Folder
 
-```bash
-cd C:\krushi-build\kisan-mitra
+```cmd
+cd C:\kisan-mitra
 ```
 
-> Replace `C:\krushi-build\kisan-mitra` with the actual path where you extracted the folder.
+Confirm you are in the right folder by listing its contents:
+
+```cmd
+dir
+```
+
+You should see files like: `package.json`, `app.json`, `eas.json`, `App.tsx`, `src`
 
 ---
 
 ## Step 5 — Install Dependencies
 
-```bash
+```cmd
 npm install
 ```
+
+> This will work without errors because the folder already includes a `.npmrc` file that handles the React version conflict automatically. If you previously got an `ERESOLVE` error, it was because you were using an older download of the folder — **re-download it from Replit** and try again.
 
 Wait for it to finish. You will see a message like `added 1000+ packages`.
 
@@ -86,7 +96,7 @@ Wait for it to finish. You will see a message like `added 1000+ packages`.
 
 ## Step 6 — Login to EAS
 
-```bash
+```cmd
 eas login
 ```
 
@@ -94,35 +104,35 @@ Enter your **Expo username** and **password** when prompted.
 
 Confirm login was successful:
 
-```bash
+```cmd
 eas whoami
 ```
 
-It should show your Expo username.
+It should display your Expo username.
 
 ---
 
 ## Step 7 — Link the Project to Your Expo Account
 
-```bash
+```cmd
 eas init
 ```
 
 - It will ask: **"Would you like to create a new EAS project?"** → Press `Y` and Enter
 - It will create a project called `kisan-mitra` on your Expo account
-- This will add an `extra.eas.projectId` to your `app.json` automatically
+- This adds a project ID to your `app.json` automatically — this is normal
 
 ---
 
 ## Step 8 — Build the Production APK
 
-```bash
+```cmd
 eas build --platform android --profile production
 ```
 
 ### What happens next:
 1. EAS uploads your project code to Expo's cloud build servers
-2. The build runs entirely in the cloud — your machine can stay idle
+2. The build runs entirely in the cloud — your machine does nothing and can stay idle
 3. You will see a progress URL like:  
    `https://expo.dev/accounts/YOUR_USERNAME/projects/kisan-mitra/builds/xxxx`
 4. **Build time: approximately 5–15 minutes**
@@ -133,25 +143,29 @@ eas build --platform android --profile production
 
 Once the build is complete:
 
-1. Open the build URL shown in your terminal (or go to https://expo.dev → your project → Builds)
+1. Open the build URL shown in your terminal  
+   *(or go to https://expo.dev → your account → Projects → kisan-mitra → Builds)*
 2. Click **Download** next to the completed build
-3. You will get a file named something like `kisan-mitra-production.apk`
+3. You will get a file like `kisan-mitra-production.apk`
 
 ---
 
 ## Step 10 — Install the APK on an Android Phone
 
 ### Method A — Direct USB Transfer
-1. Connect the Android phone to your computer via USB
-2. Copy the `.apk` file to the phone's storage
-3. On the phone, open **Files** app → find the APK → tap it
-4. If prompted, enable **"Install from Unknown Sources"** in Settings
-5. Tap **Install**
+1. Connect the Android phone to your PC via USB cable
+2. On the phone, allow **File Transfer** mode
+3. Copy the `.apk` file to the phone's storage (e.g. Downloads folder)
+4. On the phone, open the **Files** app → navigate to Downloads → tap the APK
+5. If prompted about **"Install from Unknown Sources"**:  
+   Go to **Settings → Apps → Special App Access → Install Unknown Apps**  
+   → Enable for your file manager
+6. Tap **Install**
 
 ### Method B — Share via WhatsApp / Google Drive
-1. Upload the `.apk` to Google Drive or WhatsApp
+1. Upload the `.apk` to Google Drive or send via WhatsApp to yourself
 2. Download it on the Android phone
-3. Tap the downloaded file to install
+3. Tap the downloaded file and install
 
 ---
 
@@ -172,20 +186,22 @@ Once installed, the कृषी सुविधा app will:
 
 | Problem | Solution |
 |---------|----------|
-| `eas: command not found` | Run `npm install -g eas-cli` again, restart terminal |
+| `npm install` gives `ERESOLVE` error | Re-download the kisan-mitra folder from Replit (the new version includes a fix). Or run `npm install --legacy-peer-deps` |
+| `eas: command not found` | Run `npm install -g eas-cli` again, then close and reopen Command Prompt |
 | `Not logged in` | Run `eas login` again |
-| Build fails with dependency error | Delete `node_modules` folder and run `npm install` again |
-| APK installs but can't connect | Check that nginx is running on your VPS and `/api/` is proxied to port `3014` |
-| `Install blocked` on phone | Go to Settings → Security → Enable "Install Unknown Apps" for your file manager |
+| Build fails on Expo cloud | Go to the build URL and check the logs — usually a missing dependency |
+| APK installs but cannot connect to server | Check that nginx on your VPS is proxying `/api/` to `localhost:3014` |
+| `Install blocked` on phone | Settings → Apps → Special App Access → Install Unknown Apps → enable for Files app |
+| `ls` not working in Command Prompt | Use `dir` instead — `ls` is a Linux command, not available in Windows cmd |
 
 ---
 
 ## Rebuilding After Code Changes
 
-Whenever you update the mobile app code, repeat only **Steps 4 and 8**:
+Whenever you update the mobile app code and download a fresh copy, navigate into the folder and run:
 
-```bash
-cd C:\krushi-build\kisan-mitra
+```cmd
+npm install
 eas build --platform android --profile production
 ```
 
@@ -195,10 +211,10 @@ Each build creates a new APK download link on your Expo dashboard.
 
 ## Important Notes
 
-- The APK built with `--profile production` has your live domain baked in — it will **always** call `https://krushisuvidhaai.airavatatechnologies.com/api`
-- To test with a local API server, use `--profile development` instead
-- Your Expo free account gets limited build minutes per month — each APK build uses approximately 10–15 minutes
-- You do **not** need Android Studio, Java, or any Android SDK installed locally — all compilation happens on Expo's servers
+- The APK built with `--profile production` always calls `https://krushisuvidhaai.airavatatechnologies.com/api` — your live VPS
+- To test with a local API server during development, use `--profile development` instead
+- You do **not** need Android Studio, Java, or any Android SDK — all compilation happens on Expo's cloud servers
+- Your Expo free account has limited build minutes per month — each APK build uses approximately 10–15 minutes
 
 ---
 
