@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "afK-0QYoib8UstriaOXQY"
@@ -12,3 +11,9 @@ id = "KVP-H8eE7lcZO6MvPBly5"
 uri = "file://artifacts/farmer-app/assets/images/splash-icon.png"
 type = "image"
 title = "kisan-seva-splash-icon"
+
+[[outputs]]
+id = "ryHFPq5V6Gq86YwMU4-8A"
+uri = "file://APK_Build_Guide.md"
+type = "text"
+title = "कृषी सुविधा — APK Build Guide"
