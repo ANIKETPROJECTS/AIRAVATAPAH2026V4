@@ -48,7 +48,7 @@ You should see something like `eas-cli/18.x.x win32-x64 node-v22.x.x`.
 
 ## Step 3 — Download the kisan-mitra Folder (Fresh Copy)
 
-> ⚠️ **If you already downloaded this folder before, delete it and download a fresh copy.** The folder has been updated with required app icon/splash files and plugin fixes.
+> ⚠️ **If you already downloaded this folder before, delete it and download a fresh copy.** The folder has been updated with Gradle build fixes — the old version will fail.
 
 1. Open your Replit project
 2. Right-click the `artifacts/kisan-mitra` folder in the file tree
@@ -160,8 +160,8 @@ eas build --platform android --profile production
 - Install dependencies
 - Read app config
 - Run expo doctor
-- **Prebuild** ← this was failing before, now fixed
-- Run gradlew
+- Prebuild
+- **Run gradlew** ← this was failing before, now fixed
 - Upload build artifacts
 
 ---
@@ -210,7 +210,8 @@ Once installed, the कृषी सुविधा app:
 
 | Problem | Solution |
 |---------|----------|
-| **Prebuild failed** | Re-download kisan-mitra from Replit (fresh copy) — the assets folder was missing in the old version |
+| **Gradle build failed / Run gradlew error** | Re-download a fresh copy of kisan-mitra from Replit — the Gradle fix (New Architecture disabled) is now included |
+| **Prebuild failed** | Re-download kisan-mitra from Replit (fresh copy) — make sure the assets folder is present |
 | `npm install` gives `ERESOLVE` | The `.npmrc` file handles this automatically. If still failing, run `npm install --legacy-peer-deps` |
 | `eas: command not found` | Run `npm install -g eas-cli`, then close and reopen Command Prompt |
 | Login error "password must contain 1 char" | Use your Expo **username** not your email address when logging in |

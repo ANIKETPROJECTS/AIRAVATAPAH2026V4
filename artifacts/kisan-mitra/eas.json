@@ -9,6 +9,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
+        "resourceClass": "medium",
         "env": {
           "EXPO_PUBLIC_API_BASE_URL": "http://localhost:8000/api",
           "EAS_BUILD_NO_EXPO_GO_WARNING": "true"
@@ -19,6 +20,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
+        "resourceClass": "medium",
         "env": {
           "EXPO_PUBLIC_API_BASE_URL": "https://krushisuvidhaai.airavatatechnologies.com/api",
           "EAS_BUILD_NO_EXPO_GO_WARNING": "true"

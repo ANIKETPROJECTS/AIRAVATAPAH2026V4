@@ -29,6 +29,19 @@
     },
     "plugins": [
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0",
+            "kotlinVersion": "1.9.25",
+            "ndkVersion": "27.1.12297006",
+            "newArchEnabled": false
+          }
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Allow कृषी सुविधा to access your photos to upload documents.",
