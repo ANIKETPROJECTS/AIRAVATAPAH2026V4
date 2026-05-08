@@ -210,7 +210,8 @@ Once installed, the कृषी सुविधा app:
 
 | Problem | Solution |
 |---------|----------|
-| **Gradle build failed / Run gradlew error** | Re-download a fresh copy of kisan-mitra from Replit — the Gradle fix (New Architecture disabled) is now included |
+| **Gradle build failed / Run gradlew error** | Re-download a fresh copy of kisan-mitra from Replit — both the New Architecture fix and the safe-area-context v5 upgrade are now included |
+| **`compileReleaseKotlin FAILED` / SafeAreaProviderManager error** | Re-download kisan-mitra from Replit — `react-native-safe-area-context` has been upgraded to v5 which fixes this |
 | **Prebuild failed** | Re-download kisan-mitra from Replit (fresh copy) — make sure the assets folder is present |
 | `npm install` gives `ERESOLVE` | The `.npmrc` file handles this automatically. If still failing, run `npm install --legacy-peer-deps` |
 | `eas: command not found` | Run `npm install -g eas-cli`, then close and reopen Command Prompt |
