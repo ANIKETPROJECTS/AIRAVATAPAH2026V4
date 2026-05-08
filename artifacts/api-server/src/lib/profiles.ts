@@ -330,9 +330,11 @@ function nonEmpty(v: string | undefined): string | undefined {
 function cleanName(v: string | undefined): string | undefined {
   if (typeof v !== "string") return undefined;
   let s = v
-    // Remove parenthesised groups that contain only symbols / whitespace
-    .replace(/\([|,.\-/\\*#@!^~`_=+<>:;\s]*\)/g, "")
-    // Remove all pipe characters (common OCR table-border artefact)
+    // Remove parenthesised groups that contain only symbols, dandas, pipes, whitespace
+    .replace(/\([\u0964\u0965|,.\-/\\*#@!^~`_=+<>:;\s]*\)/g, "")
+    // Remove Devanagari dandas (। U+0964, ॥ U+0965) — common OCR table-line artefact
+    .replace(/[\u0964\u0965]/g, "")
+    // Remove all ASCII pipe characters
     .replace(/\|/g, "")
     // Remove other stray symbol artefacts
     .replace(/[\\#@!^~`_=+<>]/g, "")

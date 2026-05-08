@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Sparkles, FileText, User, MapPin, Landmark, Shield, ChevronDown, ChevronUp, Edit2, Save, XCircle, Trash2, Loader2, Smartphone } from "lucide-react";
 import { apiUpdateFarmer, apiDeleteFarmer, type FarmerRecord, type DocRecord, type OcrDocSection } from "@/data/farmerApi";
 import { SpannedTable } from "@/components/modules/NewRegistration";
+import { sanitizeName } from "@/lib/textUtils";
 
 interface Props {
   farmer: FarmerRecord;
@@ -27,10 +28,11 @@ function formatLandHAR(val: number | string | undefined): string {
 }
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  const clean = sanitizeName(value);
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{value || "—"}</span>
+      <span className="text-sm font-medium">{clean || "—"}</span>
     </div>
   );
 }
@@ -157,7 +159,7 @@ export default function FarmerDetailModal({ farmer, onClose, onDeleted, onUpdate
                 </span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground mt-0.5">{farmer.farmerId} · {farmer.village}, {farmer.district}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{farmer.farmerId} · {sanitizeName(farmer.village)}, {sanitizeName(farmer.district)}</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0 ml-4">
             {!isEditing && (

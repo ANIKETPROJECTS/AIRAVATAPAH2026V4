@@ -9,6 +9,7 @@ import {
   X, ZoomIn, Image,
 } from "lucide-react";
 import { apiCreateFarmer, apiSaveDocumentImages, notifyFarmerChange } from "@/data/farmerApi";
+import { sanitizeName } from "@/lib/textUtils";
 
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
@@ -1194,7 +1195,7 @@ export function FieldsTable({
                         {tField(f.key, lang, f.label)}
                       </td>
                       <td className="px-4 py-2.5 text-foreground break-words">
-                        {f.value}
+                        {sanitizeName(f.value)}
                       </td>
                     </tr>
                   ))}
