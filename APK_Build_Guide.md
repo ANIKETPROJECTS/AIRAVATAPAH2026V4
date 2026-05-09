@@ -262,48 +262,74 @@ You do **not** need to run `eas init` again — it only needs to be done once.
 
 ---
 
-### Fix 2 — Profile Screen Shows Only "Personal Details" (Android)
+### Fix 2 — Profile Screen Shows Only "Personal Details" (APK + Web)
 
-**Root cause:** The production VPS API returns OCR data inside `extractionData` (nested sections/fields format) but does not always merge it back into the flat `ocr` field that the profile screen reads. The local Replit dev server does this merge server-side; the VPS did not.
+**Root cause (layer 1):** The production VPS API may return OCR data inside `extractionData` (nested sections/fields format) without merging it into the flat `ocr` field the profile screen reads.
 
-**Fix:** Added a `deriveOcrFromExtractionData()` function (client-side mirror of the server logic) in `api.ts`. It is now called in **three** places in `AuthContext.tsx`:
-1. **On app boot** — when restoring session from AsyncStorage
-2. **On OTP login** — immediately after `verifyOtp` returns farmer data
-3. **On `refreshFarmer`** — when the app polls the latest farmer record from the API
+**Root cause (layer 2):** Even when neither `ocr` nor `extractionData` is available, the farmer document always has top-level fields populated (`name`, `aadhaar`, `dob`, `gender`, `fatherName`, `address`, `bankName`, `ifsc`, `bankAccount`, `village`, `district`, etc.) — extracted during document upload.
 
-This ensures the profile screen always has populated OCR sections regardless of which API version is running on the VPS.
+**Fix:** Replaced `deriveOcrFromExtractionData` with a new `enrichFarmerOcr()` function that applies **two layers of enrichment**:
+1. **Layer 1** — Derives `ocr` sections from `extractionData.{docId}.sections[].fields[]` (handles the case where VPS returns raw extraction data)
+2. **Layer 2 fallback** — Builds `ocr.aadhar`, `ocr.passbook`, `ocr.form7`, `ocr.form12`, `ocr.form8a` from top-level farmer fields, so all sections are shown regardless of VPS API version
 
----
-
-### Fix 3 — On-Screen Debug Log Panel
-
-A collapsible debug log panel (`🔧 Debug Log`) now appears on the Document Upload screen after the first upload attempt. It shows:
-- `Platform.OS` and the API base URL being used
-- The file name, MIME type, and first 40 chars of the URI for each upload
-- Success (request ID) or full error message
-
-This lets you diagnose any future upload issues directly from the device without needing a computer or USB cable.
+This is called in **three** places in `AuthContext.tsx`:
+- On app boot (restoring session from storage)
+- On OTP login (verifyOtp result)
+- On every `refreshFarmer` poll
 
 ---
 
-## API Routing (Mobile App)
+### Fix 3 — Port 8008 Web Preview Shows Stale "Pending" After VPS Verification
 
-All requests from the Android APK go **exclusively** to:
+**Root cause:** The port 8008 web preview was calling the **local Replit API** (port 8000) which has a **separate database** from the VPS. When admin verifies a farmer via the VPS admin panel, the VPS MongoDB gets updated — but the local Replit MongoDB still had the old Pending record. The web app was reading from a different database than the APK.
 
+**Fix:** Updated `getApiBase()` in `api.ts` so that **all non-localhost environments** (including the Replit `*.replit.dev` preview domain) use the **production VPS API**:
+- `localhost:8008` → `http://localhost:8000/api` (local dev only)
+- `*.replit.dev:8008` → `https://krushisuvidhaai.airavatatechnologies.com/api` ✅
+- Android APK → `https://krushisuvidhaai.airavatatechnologies.com/api` ✅
+
+Both the port 8008 web preview and the APK now always talk to the **same production database**.
+
+---
+
+### Fix 4 — On-Screen Debug Log Panel
+
+A collapsible `🔧 Debug Log` panel appears on the Document Upload screen after the first upload attempt, showing Platform, API URL, file details, and any errors.
+
+---
+
+## API Routing Summary
+
+| Environment | API Used |
+|---|---|
+| Android APK | `https://krushisuvidhaai.airavatatechnologies.com/api` |
+| Port 8008 on Replit | `https://krushisuvidhaai.airavatatechnologies.com/api` |
+| `localhost:8008` (local dev) | `http://localhost:8000/api` |
+
+---
+
+## Updating Your VPS API Server
+
+The updated API server build is at `artifacts/api-server/dist/`. Copy it to your VPS and restart:
+
+```bash
+# On your VPS (via Hostinger terminal)
+cd /path/to/your/api
+# Upload artifacts/api-server/dist/ from Replit to this folder
+# Then restart:
+PORT=8000 MONGODB_URI=... DATALAB_API_KEY=... NODE_ENV=production node dist/index.mjs
 ```
-https://krushisuvidhaai.airavatatechnologies.com/api
-```
 
-This is hardcoded as `PRODUCTION_API` in `api.ts` and is selected whenever `Platform.OS !== 'web'`. The web preview on port 8008 continues to use the local Replit API at `${hostname}:8000/api`.
+The updated API server includes server-side `deriveOcrFromExtractionData` so the VPS will return fully populated `ocr` fields directly, making responses faster and more reliable.
 
 ---
 
 ## Important Notes
 
-- The APK always calls `https://krushisuvidhaai.airavatatechnologies.com/api` — your live VPS
+- Both the APK and port 8008 web preview now call `https://krushisuvidhaai.airavatatechnologies.com/api`
 - You do **not** need Android Studio, Java, or Android SDK — Expo builds in the cloud
 - Each build uses ~10–15 minutes of your free Expo build quota
-- To test with a local server, use `--profile development` instead
+- To test against local API, run on `localhost:8008` (e.g. `expo start --web --port 8008` locally)
 
 ---
 

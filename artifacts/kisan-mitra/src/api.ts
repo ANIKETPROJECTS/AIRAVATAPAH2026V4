@@ -15,11 +15,13 @@ function getApiBase(): string {
     return 'http://localhost:8000/api';
   }
 
-  const { protocol, hostname } = window.location;
+  const { hostname } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:8000/api';
   }
-  return `${protocol}//${hostname}:8000/api`;
+  // All non-localhost environments (Replit preview, VPS web, etc.) use the production API
+  // so both the web preview and the APK always talk to the same database.
+  return PRODUCTION_API;
 }
 
 export const API_BASE = getApiBase();
@@ -58,6 +60,80 @@ export function deriveOcrFromExtractionData(farmer: Record<string, unknown>): vo
       }
     }
     if (Object.keys(fields).length > 0) ocr[section] = fields;
+  }
+
+  farmer['ocr'] = ocr;
+}
+
+function hasData(v: unknown): boolean {
+  return v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '—';
+}
+
+/**
+ * Enriches farmer.ocr by:
+ * 1. Deriving from extractionData sections (if the API returned them)
+ * 2. Falling back to top-level farmer fields (name, aadhaar, bankName, etc.)
+ *    so older VPS API versions that don't return full OCR still show profile data.
+ */
+export function enrichFarmerOcr(farmer: Record<string, unknown>): void {
+  deriveOcrFromExtractionData(farmer);
+
+  const ocr = (farmer['ocr'] as Record<string, unknown>) ?? {};
+
+  // Aadhaar section fallback
+  const existingAadhar = ocr['aadhar'] as Record<string, unknown> | undefined;
+  if (!existingAadhar || Object.keys(existingAadhar).length === 0) {
+    const f: Record<string, string> = {};
+    if (hasData(farmer['name'])) f['name'] = String(farmer['name']);
+    if (hasData(farmer['aadhaar'])) f['aadhaarNumber'] = String(farmer['aadhaar']);
+    if (hasData(farmer['dob'])) f['dateOfBirth'] = String(farmer['dob']);
+    if (hasData(farmer['gender'])) f['gender'] = String(farmer['gender']);
+    if (hasData(farmer['fatherName'])) f['fathersOrHusbandsName'] = String(farmer['fatherName']);
+    if (hasData(farmer['address'])) f['address'] = String(farmer['address']);
+    if (hasData(farmer['aadhaarMobile'])) f['mobileNumber'] = String(farmer['aadhaarMobile']);
+    if (Object.keys(f).length > 0) ocr['aadhar'] = f;
+  }
+
+  // Bank Passbook section fallback
+  const existingPassbook = ocr['passbook'] as Record<string, unknown> | undefined;
+  if (!existingPassbook || Object.keys(existingPassbook).length === 0) {
+    const f: Record<string, string> = {};
+    if (hasData(farmer['bankName'])) f['bankName'] = String(farmer['bankName']);
+    if (hasData(farmer['branchName'])) f['branchName'] = String(farmer['branchName']);
+    if (hasData(farmer['ifsc'])) f['ifsc'] = String(farmer['ifsc']);
+    if (hasData(farmer['bankAccount'])) f['accountNumber'] = String(farmer['bankAccount']);
+    if (hasData(farmer['accountType'])) f['accountType'] = String(farmer['accountType']);
+    if (Object.keys(f).length > 0) ocr['passbook'] = f;
+  }
+
+  // Form 7 section fallback (land record data shared with form12 and form8a)
+  const landFields = (): Record<string, string> => {
+    const f: Record<string, string> = {};
+    if (hasData(farmer['village'])) f['village'] = String(farmer['village']);
+    if (hasData(farmer['district'])) f['district'] = String(farmer['district']);
+    if (hasData(farmer['taluka'])) f['taluka'] = String(farmer['taluka']);
+    if (hasData(farmer['surveyNumber'])) f['surveyNumber'] = String(farmer['surveyNumber']);
+    if (hasData(farmer['land'])) f['totalArea'] = String(farmer['land']);
+    return f;
+  };
+
+  const existingForm7 = ocr['form7'] as Record<string, unknown> | undefined;
+  if (!existingForm7 || Object.keys(existingForm7).length === 0) {
+    const f = landFields();
+    if (Object.keys(f).length > 0) ocr['form7'] = f;
+  }
+
+  const existingForm12 = ocr['form12'] as Record<string, unknown> | undefined;
+  if (!existingForm12 || Object.keys(existingForm12).length === 0) {
+    const f = landFields();
+    if (hasData(farmer['crop'])) f['crop'] = String(farmer['crop']);
+    if (Object.keys(f).length > 0) ocr['form12'] = f;
+  }
+
+  const existingForm8a = ocr['form8a'] as Record<string, unknown> | undefined;
+  if (!existingForm8a || Object.keys(existingForm8a).length === 0) {
+    const f = landFields();
+    if (Object.keys(f).length > 0) ocr['form8a'] = f;
   }
 
   farmer['ocr'] = ocr;
