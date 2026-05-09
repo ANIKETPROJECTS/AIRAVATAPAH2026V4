@@ -33,6 +33,52 @@ async function getNextFarmerId(col: Collection): Promise<string> {
   return `F-${String(maxNum + 1).padStart(3, "0")}`;
 }
 
+const DOC_ID_TO_OCR_SECTION: Record<string, string> = {
+  aadhar: "aadhar",
+  bank_passbook: "passbook",
+  form7: "form7",
+  form12: "form12",
+  form8a: "form8a",
+};
+
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase());
+}
+
+type ExtractionField = { key: string; label: string; value: string };
+type ExtractionSection = { title?: string; fields?: ExtractionField[] };
+type ExtractionDataEntry = { sections?: ExtractionSection[] };
+
+/**
+ * When a farmer was registered via the admin OCR flow, only `extractionData`
+ * is populated (not `ocr`). This helper derives a flat camelCase key→value
+ * map from extractionData sections/fields and merges it into the farmer's
+ * `ocr` object so the mobile app ProfileScreen can display per-document data.
+ */
+function deriveOcrFromExtractionData(farmer: Record<string, unknown>): void {
+  const ocr = (farmer["ocr"] as Record<string, unknown>) ?? {};
+  const extractionData = (farmer["extractionData"] as Record<string, ExtractionDataEntry>) ?? {};
+
+  for (const [docId, data] of Object.entries(extractionData)) {
+    const section = DOC_ID_TO_OCR_SECTION[docId];
+    if (!section) continue;
+    const existing = ocr[section];
+    if (existing && typeof existing === "object" && Object.keys(existing as object).length > 0) continue;
+    const fields: Record<string, string> = {};
+    for (const sec of (data.sections ?? [])) {
+      for (const f of (sec.fields ?? [])) {
+        if (f.value && f.value.trim() && f.value !== "—") {
+          fields[snakeToCamel(f.key)] = f.value;
+        }
+      }
+    }
+    if (Object.keys(fields).length > 0) ocr[section] = fields;
+  }
+
+  farmer["ocr"] = ocr;
+  delete farmer["extractionData"];
+}
+
 router.get("/farmers/by-phone/:phone", async (req, res, next) => {
   try {
     const db = getDb();
@@ -48,7 +94,7 @@ router.get("/farmers/by-phone/:phone", async (req, res, next) => {
           bankAccount: 1, bankName: 1, ifsc: 1, branchName: 1,
           crop: 1, land: 1, gender: 1, dob: 1, fatherName: 1, address: 1,
           aadhaar: 1, source: 1, addedAt: 1, updatedAt: 1, rejectionReason: 1,
-          docs: 1,
+          docs: 1, ocr: 1, extractionData: 1,
           documentsCount: { $size: { $ifNull: ["$documents", []] } },
         },
       },
@@ -56,6 +102,7 @@ router.get("/farmers/by-phone/:phone", async (req, res, next) => {
     ]).toArray();
     const farmer = rows[0] ?? null;
     if (!farmer) { res.status(404).json({ error: "Farmer not found" }); return; }
+    deriveOcrFromExtractionData(farmer as Record<string, unknown>);
     res.json(farmer);
   } catch (err) {
     next(err);

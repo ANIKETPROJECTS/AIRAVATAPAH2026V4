@@ -30,6 +30,13 @@ export interface Farmer {
   docs?: FarmerDoc[];
   documentsCount?: number;
   addedAt: string;
+  ocr?: {
+    aadhar?: Record<string, unknown>;
+    passbook?: Record<string, unknown>;
+    form7?: Record<string, unknown>;
+    form12?: Record<string, unknown>;
+    form8a?: Record<string, unknown>;
+  };
   source?: string;
   rejectionReason?: string;
 }

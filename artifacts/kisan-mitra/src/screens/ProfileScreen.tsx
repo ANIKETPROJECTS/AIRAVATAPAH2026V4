@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, SafeAreaView,
   ScrollView, Alert, Platform, Image, Modal, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
-import { api, API_BASE } from '../api';
+import { api } from '../api';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 
 interface DocImage {
@@ -35,6 +34,107 @@ const DOC_ICONS: Record<string, string> = {
   form8a: '📋',
 };
 
+const SKIP_KEYS = new Set([
+  'rawText', 'html', 'photoBase64', 'photoMimeType', 'images',
+  'transactions', 'tables', 'textBlocks', 'cropEntries',
+  'ownershipEntries', 'holdings',
+]);
+
+const FIELD_LABEL_MAP: Record<string, string> = {
+  name: 'Full Name',
+  fullName: 'Full Name',
+  aadhaarNumber: 'Aadhaar Number',
+  vid: 'Virtual ID (VID)',
+  dateOfBirth: 'Date of Birth',
+  dob: 'Date of Birth',
+  gender: 'Gender',
+  fathersOrHusbandsName: 'Father / Husband',
+  address: 'Address',
+  pincode: 'Pincode',
+  state: 'State',
+  mobileNumber: 'Registered Mobile',
+  issueDate: 'Issue Date',
+  enrolmentNumber: 'Enrolment No.',
+  bankName: 'Bank Name',
+  branchName: 'Branch Name',
+  branchAddress: 'Branch Address',
+  ifsc: 'IFSC Code',
+  ifscCode: 'IFSC Code',
+  micr: 'MICR Code',
+  micrCode: 'MICR Code',
+  accountHolderName: 'Account Holder',
+  nomineeName: 'Nominee',
+  nomineeRelationship: 'Nominee Relation',
+  email: 'Email',
+  cifNumber: 'CIF Number',
+  customerId: 'Customer ID',
+  accountNumber: 'Account Number',
+  accountType: 'Account Type',
+  branchCode: 'Branch Code',
+  accountOpeningDate: 'Opening Date',
+  openingDate: 'Account Opening Date',
+  currentBalance: 'Current Balance',
+  village: 'Village',
+  taluka: 'Taluka',
+  district: 'District',
+  surveyNumber: 'Survey Number',
+  khateNumber: 'Khate Number',
+  puId: 'PU ID',
+  occupantClass: 'Occupant Class',
+  ownerShare: 'Owner Share',
+  ownerNames: 'Owner Names',
+  modeOfAcquisition: 'Mode of Acquisition',
+  totalArea: 'Total Area',
+  landRevenueAssessment: 'Land Revenue',
+  collectionCharges: 'Collection Charges',
+  nonAgriculturalArea: 'Non-Agricultural Area',
+  nonCultivatedArea: 'Non-Cultivated Area',
+  tenantName: 'Tenant Name',
+  tenantRent: 'Tenant Rent',
+  otherRights: 'Other Rights',
+  encumbrances: 'Encumbrances',
+  lastMutationNumber: 'Last Mutation No.',
+  lastMutationDate: 'Last Mutation Date',
+  oldMutationNumbers: 'Old Mutation Nos.',
+  pendingMutation: 'Pending Mutation',
+  boundaryAndSurveyMarks: 'Boundary Marks',
+  year: 'Year',
+  reportDate: 'Report Date',
+  khatedarAddress: 'Khatedar Address',
+  totalAssessmentOrJudi: 'Total Assessment',
+  totalDamageOnInheritedLand: 'Total Damage',
+  totalZpLocalCess: 'ZP Local Cess',
+  totalGpLocalCess: 'GP Local Cess',
+  totalRecoveryAmount: 'Total Recovery',
+  grandTotal: 'Grand Total',
+  khatedarNames: 'Khatedar Names',
+};
+
+const ARRAY_FIELD_LABEL_MAP: Record<string, string> = {
+  ownerNames: 'Owner Names',
+  oldMutationNumbers: 'Old Mutation Nos.',
+  khatedarNames: 'Khatedar Names',
+  jointHolders: 'Joint Holders',
+};
+
+function humanLabel(key: string): string {
+  if (FIELD_LABEL_MAP[key]) return FIELD_LABEL_MAP[key];
+  if (ARRAY_FIELD_LABEL_MAP[key]) return ARRAY_FIELD_LABEL_MAP[key];
+  return key
+    .replace(/_/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, s => s.toUpperCase())
+    .trim();
+}
+
+const DOC_SECTIONS: Array<{ key: keyof NonNullable<NonNullable<ReturnType<typeof useAuth>['state']['farmer']>['ocr']>; label: string; icon: string; color: string }> = [
+  { key: 'aadhar',   label: 'Aadhaar Card',              icon: '🪪', color: '#6366F1' },
+  { key: 'passbook', label: 'Bank Passbook',              icon: '🏦', color: COLORS.info },
+  { key: 'form7',    label: 'Form 7 — 7/12 Satbara',     icon: '📄', color: COLORS.gold },
+  { key: 'form12',   label: 'Form 12 — Pik Pahani',      icon: '🌾', color: COLORS.primary },
+  { key: 'form8a',   label: 'Form 8A — Dharana',         icon: '📋', color: '#0D9488' },
+];
+
 function val(v: string | number | undefined | null): string {
   if (v === undefined || v === null) return '—';
   const s = String(v).trim();
@@ -42,33 +142,51 @@ function val(v: string | number | undefined | null): string {
   return s;
 }
 
-function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
+function InfoRow({ label, value, fullWidth }: { label: string; value?: string | number | null; fullWidth?: boolean }) {
   const v = val(value);
+  if (fullWidth) {
+    return (
+      <View style={rowStyles.fullRow}>
+        <Text style={rowStyles.fullLabel}>{label}</Text>
+        <Text style={[rowStyles.fullValue, v === '—' && { color: COLORS.textMuted }]}>{v}</Text>
+      </View>
+    );
+  }
   return (
     <View style={rowStyles.row}>
       <Text style={rowStyles.label}>{label}</Text>
-      <Text style={[rowStyles.value, v === '—' && { color: COLORS.textMuted }]} numberOfLines={2}>{v}</Text>
+      <Text style={[rowStyles.value, v === '—' && { color: COLORS.textMuted }]} numberOfLines={3}>{v}</Text>
     </View>
   );
 }
 
 const rowStyles = StyleSheet.create({
   row: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
   },
-  label: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, flex: 1, fontWeight: '500' },
-  value: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.text, flex: 1.5, textAlign: 'right' },
+  label: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, flex: 1, fontWeight: '500', paddingRight: 8 },
+  value: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.text, flex: 1.4, textAlign: 'right' },
+  fullRow: {
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+  },
+  fullLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, fontWeight: '500', marginBottom: 4 },
+  fullValue: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: COLORS.text },
 });
 
-function SectionCard({ title, icon, color = COLORS.primary, children }: { title: string; icon: string; color?: string; children: React.ReactNode }) {
+function SectionCard({ title, icon, color = COLORS.primary, subtitle, children }: {
+  title: string; icon: string; color?: string; subtitle?: string; children: React.ReactNode;
+}) {
   return (
     <View style={cardStyles.card}>
       <View style={[cardStyles.cardHeader, { borderLeftColor: color }]}>
-        <View style={[cardStyles.iconBox, { backgroundColor: color + '15' }]}>
+        <View style={[cardStyles.iconBox, { backgroundColor: color + '18' }]}>
           <Text style={cardStyles.cardIcon}>{icon}</Text>
         </View>
-        <Text style={[cardStyles.cardTitle, { color: COLORS.primaryDark }]}>{title}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[cardStyles.cardTitle, { color: COLORS.primaryDark }]}>{title}</Text>
+          {subtitle ? <Text style={cardStyles.cardSubtitle}>{subtitle}</Text> : null}
+        </View>
       </View>
       {children}
     </View>
@@ -84,12 +202,12 @@ const cardStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginBottom: 12, paddingBottom: 12,
     borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
-    borderLeftWidth: 3, borderLeftColor: COLORS.primary,
-    paddingLeft: 10,
+    borderLeftWidth: 3, paddingLeft: 10,
   },
-  iconBox: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  cardIcon: { fontSize: 18 },
+  iconBox: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  cardIcon: { fontSize: 19 },
   cardTitle: { fontSize: FONT_SIZE.base, fontWeight: '800' },
+  cardSubtitle: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, marginTop: 2 },
 });
 
 function DocImageModal({ doc, onClose }: { doc: DocImage; onClose: () => void }) {
@@ -131,6 +249,61 @@ const modalStyles = StyleSheet.create({
   uploadedAt: { color: 'rgba(255,255,255,0.5)', fontSize: FONT_SIZE.xs, textAlign: 'center', marginTop: 12 },
 });
 
+function OcrDocSection({ sectionKey, label, icon, color, data }: {
+  sectionKey: string; label: string; icon: string; color: string; data: Record<string, unknown>;
+}) {
+  const scalarEntries = Object.entries(data).filter(([k, v]) =>
+    !SKIP_KEYS.has(k) &&
+    v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim() !== '—' &&
+    !Array.isArray(v) && typeof v !== 'object'
+  );
+  const arrayEntries = Object.entries(data).filter(([k, v]) =>
+    !SKIP_KEYS.has(k) && Array.isArray(v) && (v as unknown[]).length > 0
+  );
+
+  if (scalarEntries.length === 0 && arrayEntries.length === 0) return null;
+
+  const LONG_KEYS = new Set(['address', 'branchAddress', 'boundaryAndSurveyMarks', 'khatedarAddress', 'otherRights', 'encumbrances', 'pendingMutation']);
+
+  return (
+    <SectionCard title={label} icon={icon} color={color} subtitle={`${scalarEntries.length + arrayEntries.length} field${scalarEntries.length + arrayEntries.length !== 1 ? 's' : ''} extracted`}>
+      {scalarEntries.map(([k, v]) => (
+        <InfoRow
+          key={k}
+          label={humanLabel(k)}
+          value={String(v)}
+          fullWidth={LONG_KEYS.has(k)}
+        />
+      ))}
+      {arrayEntries.map(([k, v]) => (
+        <View key={k} style={ocrStyles.arrayBlock}>
+          <Text style={ocrStyles.arrayLabel}>{humanLabel(k)}</Text>
+          <View style={ocrStyles.chips}>
+            {(v as unknown[]).map((item, i) => (
+              <View key={i} style={[ocrStyles.chip, { backgroundColor: color + '12', borderColor: color + '50' }]}>
+                <Text style={[ocrStyles.chipText, { color }]}>{String(item)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </SectionCard>
+  );
+}
+
+const ocrStyles = StyleSheet.create({
+  arrayBlock: {
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+  },
+  arrayLabel: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, fontWeight: '500', marginBottom: 8 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: {
+    paddingHorizontal: 12, paddingVertical: 5,
+    borderRadius: RADIUS.full, borderWidth: 1,
+  },
+  chipText: { fontSize: FONT_SIZE.xs, fontWeight: '700' },
+});
+
 export default function ProfileScreen() {
   const { state, logout, refreshFarmer } = useAuth();
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
@@ -140,7 +313,6 @@ export default function ProfileScreen() {
   const [docImages, setDocImages] = useState<DocImage[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocImage | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const canViewDocs = farmer?.status === 'Active' || farmer?.status === 'Verified';
 
@@ -156,7 +328,6 @@ export default function ProfileScreen() {
   }, [farmer?.farmerId, canViewDocs]);
 
   useEffect(() => { loadData(); }, []);
-
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const initials = (farmer?.name && farmer.name !== '—')
@@ -174,14 +345,8 @@ export default function ProfileScreen() {
     ]);
   }
 
-  const docsUploaded = farmer?.docs ?? [];
-  const hasAadhaar = docsUploaded.some(d => d.section === 'aadhar');
-  const hasPassbook = docsUploaded.some(d => d.section === 'passbook');
-  const hasForm7 = docsUploaded.some(d => d.section === 'form7');
-  const hasForm12 = docsUploaded.some(d => d.section === 'form12');
-  const hasForm8a = docsUploaded.some(d => d.section === 'form8a');
-
-  const anyDocUploaded = docsUploaded.length > 0;
+  const ocr = farmer?.ocr;
+  const hasAnyOcr = ocr && Object.values(ocr).some(v => v && typeof v === 'object' && Object.keys(v as object).length > 0);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -226,72 +391,46 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Personal Details (from Aadhaar) */}
-        <SectionCard title={t('personalInfo')} icon="👤" color={COLORS.primary}>
-          <InfoRow label={t('name')} value={farmer?.name} />
-          <InfoRow label={t('aadhaar')} value={farmer?.aadhaar} />
-          <InfoRow label={t('dob')} value={(farmer as any)?.dob} />
-          <InfoRow label={t('gender')} value={(farmer as any)?.gender} />
-          <InfoRow label={t('mobile')} value={state.mobile ? `+91 ${state.mobile}` : undefined} />
-          {(farmer as any)?.fatherName && (
-            <InfoRow label="Father's Name" value={(farmer as any).fatherName} />
-          )}
-          {(farmer as any)?.address && (
-            <InfoRow label="Address" value={(farmer as any).address} />
-          )}
-        </SectionCard>
-
-        {/* Land Details (from Form 7 / Form 12 / Form 8A) */}
-        {(anyDocUploaded || farmer?.village || farmer?.district) && (
-          <SectionCard title={t('landInfo')} icon="🌾" color={COLORS.gold}>
-            <InfoRow label={t('village')} value={farmer?.village} />
-            <InfoRow label={t('district')} value={farmer?.district} />
-            <InfoRow label={t('taluka')} value={farmer?.taluka} />
-            <InfoRow label={t('surveyNo')} value={farmer?.surveyNumber} />
-            <InfoRow label={t('landArea')} value={farmer?.land ? `${farmer.land} हे. / ha` : undefined} />
-            <InfoRow label={t('crop')} value={farmer?.crop} />
+        {/* Per-document OCR sections */}
+        {hasAnyOcr ? (
+          DOC_SECTIONS.map(({ key, label, icon, color }) => {
+            const data = ocr?.[key];
+            if (!data || typeof data !== 'object') return null;
+            return (
+              <OcrDocSection
+                key={key}
+                sectionKey={key}
+                label={label}
+                icon={icon}
+                color={color}
+                data={data as Record<string, unknown>}
+              />
+            );
+          })
+        ) : (
+          /* Fallback: show basic top-level fields when no OCR data yet */
+          <SectionCard title={t('personalInfo')} icon="👤" color={COLORS.primary}>
+            <InfoRow label={t('name')} value={farmer?.name} />
+            <InfoRow label={t('aadhaar')} value={farmer?.aadhaar} />
+            <InfoRow label={t('dob')} value={farmer?.dob} />
+            <InfoRow label={t('gender')} value={farmer?.gender} />
+            <InfoRow label={t('mobile')} value={state.mobile ? `+91 ${state.mobile}` : undefined} />
+            {farmer?.fatherName && <InfoRow label="Father's Name" value={farmer.fatherName} />}
+            {farmer?.address && <InfoRow label="Address" value={farmer.address} fullWidth />}
+            {farmer?.village && <InfoRow label={t('village')} value={farmer.village} />}
+            {farmer?.district && <InfoRow label={t('district') ?? 'District'} value={farmer.district} />}
+            {farmer?.taluka && <InfoRow label={t('taluka')} value={farmer.taluka} />}
+            {farmer?.surveyNumber && <InfoRow label={t('surveyNo')} value={farmer.surveyNumber} />}
+            {farmer?.land && <InfoRow label={t('landArea')} value={`${farmer.land} हे.`} />}
+            {farmer?.crop && <InfoRow label={t('crop')} value={farmer.crop} />}
+            {farmer?.bankName && <InfoRow label={t('bank')} value={farmer.bankName} />}
+            {farmer?.branchName && <InfoRow label={t('branch')} value={farmer.branchName} />}
+            {farmer?.ifsc && <InfoRow label={t('ifsc')} value={farmer.ifsc} />}
+            {farmer?.bankAccount && <InfoRow label={t('accountNo')} value={farmer.bankAccount} />}
           </SectionCard>
         )}
 
-        {/* Bank Details (from Passbook) */}
-        {(anyDocUploaded || farmer?.bankAccount || farmer?.bankName) && (
-          <SectionCard title={t('bankInfo')} icon="🏦" color={COLORS.info}>
-            <InfoRow label={t('bank')} value={farmer?.bankName} />
-            <InfoRow label={t('branch')} value={(farmer as any)?.branchName} />
-            <InfoRow label={t('ifsc')} value={(farmer as any)?.ifsc} />
-            <InfoRow label={t('accountNo')} value={farmer?.bankAccount} />
-          </SectionCard>
-        )}
-
-        {/* Submitted Documents section */}
-        {docsUploaded.length > 0 && (
-          <SectionCard title="Submitted Documents" icon="📁" color="#7C3AED">
-            {docsUploaded.map((doc, i) => {
-              const docIcon = DOC_ICONS[(doc as any).section] ?? '📄';
-              const docLabel = DOC_LABELS[(doc as any).section] ?? doc.name;
-              return (
-                <View key={i} style={styles.docRow}>
-                  <View style={styles.docIconBox}>
-                    <Text style={styles.docIcon}>{docIcon}</Text>
-                  </View>
-                  <View style={styles.docInfo}>
-                    <Text style={styles.docName}>{docLabel || doc.name}</Text>
-                    <Text style={styles.docDate}>
-                      {doc.extractedAt
-                        ? new Date(doc.extractedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                        : 'Processing…'}
-                    </Text>
-                  </View>
-                  <View style={[styles.docBadge, { backgroundColor: COLORS.primaryBg }]}>
-                    <Text style={styles.docBadgeText}>✓</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </SectionCard>
-        )}
-
-        {/* Original Document Images */}
+        {/* Document Images Viewer */}
         {canViewDocs && (
           <SectionCard title="My Documents" icon="🖼️" color={COLORS.gold}>
             {loadingDocs ? (
@@ -402,24 +541,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: COLORS.primary,
   },
   kycBadgeText: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.primary },
-  docRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 10, borderTopWidth: 1, borderTopColor: COLORS.borderLight,
-  },
-  docIconBox: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center',
-  },
-  docIcon: { fontSize: 18 },
-  docInfo: { flex: 1 },
-  docName: { fontSize: FONT_SIZE.sm, fontWeight: '600', color: COLORS.text },
-  docDate: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
-  docBadge: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: COLORS.primary,
-  },
-  docBadgeText: { fontSize: FONT_SIZE.sm, color: COLORS.primary, fontWeight: '800' },
   docsLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 16 },
   docsLoadingText: { color: COLORS.textMuted, fontSize: FONT_SIZE.sm },
   docsEmpty: { paddingVertical: 12 },
