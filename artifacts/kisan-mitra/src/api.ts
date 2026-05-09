@@ -1,11 +1,19 @@
+import { Platform } from 'react-native';
 import { Farmer, Notification, Scheme, InsuranceSubsidy, Application } from './types';
 
+const PRODUCTION_API = 'https://krushisuvidhaai.airavatatechnologies.com/api';
+
 function getApiBase(): string {
-  if (typeof window === 'undefined') {
-    return process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://localhost:8000/api';
-  }
   const override = process.env['EXPO_PUBLIC_API_BASE_URL'];
   if (override) return override;
+
+  if (Platform.OS !== 'web') {
+    return PRODUCTION_API;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8000/api';
+  }
 
   const { protocol, hostname } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {

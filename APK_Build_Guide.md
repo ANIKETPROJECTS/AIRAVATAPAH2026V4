@@ -245,10 +245,16 @@ Once installed, the कृषी सुविधा app:
 
 ```cmd
 npm install
-eas build --platform android --profile production
+eas build --platform android --profile production --no-build-cache
 ```
 
 You do **not** need to run `eas init` again — it only needs to be done once.
+
+---
+
+## May 2026 Update — Document Upload Fix
+
+> **Important:** The APK now automatically connects to `https://krushisuvidhaai.airavatatechnologies.com/api` on native Android. A previous bug caused document uploads to fail with "Network request failed" because the app was incorrectly trying to reach `localhost:8000` on the device. This is now fixed. **Re-download and rebuild your APK to get this fix.**
 
 ---
 

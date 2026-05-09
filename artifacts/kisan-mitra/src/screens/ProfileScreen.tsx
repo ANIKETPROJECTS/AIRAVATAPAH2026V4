@@ -178,10 +178,17 @@ export default function ProfileScreen() {
       )}
 
       <View style={styles.topBar}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.topBarTitle}>कृषी सुविधा</Text>
           <Text style={styles.topBarSub}>{t('myProfile')}</Text>
         </View>
+        <TouchableOpacity
+          style={styles.settingsBtn}
+          onPress={() => navigation.navigate('Settings')}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.settingsBtnText}>⚙️</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -327,9 +334,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.background },
   topBar: {
     backgroundColor: COLORS.primaryDark, paddingHorizontal: 20, paddingVertical: 14,
+    flexDirection: 'row', alignItems: 'center',
   },
   topBarTitle: { fontSize: FONT_SIZE.base, fontWeight: '800', color: COLORS.gold },
   topBarSub: { fontSize: FONT_SIZE.xs, color: 'rgba(255,255,255,0.6)', marginTop: 2 },
+  settingsBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  settingsBtnText: { fontSize: 20 },
   scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
   profileHero: {
     backgroundColor: COLORS.primaryDark, borderRadius: RADIUS.xl, padding: 24,
