@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { Farmer, Lang } from '../types';
 import { storage } from '../storage';
-import { api } from '../api';
+import { api, deriveOcrFromExtractionData } from '../api';
 
 interface AuthState {
   loading: boolean;
@@ -88,12 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           storage.loadSession(),
           storage.loadLang(),
         ]);
+        const storedFarmer = session.farmer as Farmer | null;
+        if (storedFarmer) deriveOcrFromExtractionData(storedFarmer as unknown as Record<string, unknown>);
         dispatch({
           type: 'INIT',
           payload: {
             token: session.token,
             mobile: session.mobile,
-            farmer: session.farmer as Farmer | null,
+            farmer: storedFarmer,
             lang: (lang as Lang | null) ?? 'en',
           },
         });
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback(async (token: string, mobile: string, farmer: Farmer | null) => {
+    if (farmer) deriveOcrFromExtractionData(farmer as unknown as Record<string, unknown>);
     await storage.saveSession(token, mobile);
     if (farmer) await storage.saveFarmer(farmer);
     dispatch({ type: 'LOGIN', payload: { token, mobile, farmer } });
@@ -121,6 +124,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!state.mobile) return;
     try {
       const farmer = await api.getFarmerByPhone(state.mobile);
+      // If the production API returns extractionData instead of merged ocr,
+      // derive the ocr sections client-side so the profile screen shows full detail.
+      deriveOcrFromExtractionData(farmer as unknown as Record<string, unknown>);
       await storage.saveFarmer(farmer);
       dispatch({ type: 'UPDATE_FARMER', payload: farmer });
     } catch {

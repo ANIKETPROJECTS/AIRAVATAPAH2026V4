@@ -6,7 +6,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../api';
+import { api, API_BASE } from '../api';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
 import { REQUIRED_DOCUMENTS, DocUploadState, DocUploadStatus, DocumentTypeId } from '../types';
 
@@ -18,6 +18,15 @@ interface Props {
 export default function DocumentUploadScreen({ isReupload, onCancelReupload }: Props) {
   const { state, updateFarmer, logout } = useAuth();
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
+
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  function addDebugLog(msg: string) {
+    const ts = new Date().toISOString().substring(11, 23);
+    setDebugLog(prev => [`[${ts}] ${msg}`, ...prev].slice(0, 30));
+    setShowDebug(true);
+  }
 
   async function handleLogout() {
     if (Platform.OS === 'web') {
@@ -79,6 +88,8 @@ export default function DocumentUploadScreen({ isReupload, onCancelReupload }: P
       let fileName = `${docId}.pdf`;
       let fileMime = 'application/pdf';
 
+      addDebugLog(`Platform: ${Platform.OS} | API: ${API_BASE}`);
+
       if (Platform.OS === 'web') {
         const result = await DocumentPicker.getDocumentAsync({
           type: ['image/*', 'application/pdf'],
@@ -108,16 +119,19 @@ export default function DocumentUploadScreen({ isReupload, onCancelReupload }: P
         fileMime = 'image/jpeg';
       }
 
+      addDebugLog(`Uploading ${docId}: ${fileName} (${fileMime})`);
+      addDebugLog(`URI starts with: ${fileUri.substring(0, 40)}`);
+
       setDoc(docId, { status: 'uploading', fileName });
       const submitResult = await api.uploadDocument(fileUri, fileName, fileMime, docId, mobile);
       const requestId = submitResult.request_id;
+      addDebugLog(`Upload OK → requestId: ${requestId}`);
       setDoc(docId, { status: 'processing', requestId });
       pollUntilDone(docId, requestId);
     } catch (err) {
-      setDoc(docId, {
-        status: 'error',
-        error: err instanceof Error ? err.message : 'Upload failed. Please try again.',
-      });
+      const errMsg = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      addDebugLog(`ERROR: ${errMsg}`);
+      setDoc(docId, { status: 'error', error: errMsg });
     }
   }
 
@@ -319,6 +333,27 @@ export default function DocumentUploadScreen({ isReupload, onCancelReupload }: P
           </TouchableOpacity>
         )}
 
+        {/* Debug Log Panel — shows after first upload attempt */}
+        {debugLog.length > 0 && (
+          <View style={styles.debugPanel}>
+            <TouchableOpacity
+              style={styles.debugHeader}
+              onPress={() => setShowDebug(v => !v)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.debugTitle}>🔧 Debug Log ({debugLog.length})</Text>
+              <Text style={styles.debugToggle}>{showDebug ? '▲ Hide' : '▼ Show'}</Text>
+            </TouchableOpacity>
+            {showDebug && (
+              <View style={styles.debugBody}>
+                {debugLog.map((line, i) => (
+                  <Text key={i} style={styles.debugLine}>{line}</Text>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
@@ -428,4 +463,16 @@ const styles = StyleSheet.create({
     marginTop: 12, paddingVertical: 14, alignItems: 'center',
   },
   cancelReuploadText: { color: COLORS.textMuted, fontSize: FONT_SIZE.base, fontWeight: '600' },
+  debugPanel: {
+    marginTop: 12, borderRadius: RADIUS.md,
+    borderWidth: 1, borderColor: '#334155', backgroundColor: '#0F172A', overflow: 'hidden',
+  },
+  debugHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#1E293B',
+  },
+  debugTitle: { fontSize: 12, fontWeight: '700', color: '#94A3B8' },
+  debugToggle: { fontSize: 11, color: '#64748B' },
+  debugBody: { padding: 10, gap: 2 },
+  debugLine: { fontSize: 10, color: '#94A3B8', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', lineHeight: 16 },
 });

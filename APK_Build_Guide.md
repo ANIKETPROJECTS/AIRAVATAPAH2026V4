@@ -252,9 +252,49 @@ You do **not** need to run `eas init` again — it only needs to be done once.
 
 ---
 
-## May 2026 Update — Document Upload Fix
+## May 2026 Update — All Bug Fixes
 
-> **Important:** The APK now automatically connects to `https://krushisuvidhaai.airavatatechnologies.com/api` on native Android. A previous bug caused document uploads to fail with "Network request failed" because the app was incorrectly trying to reach `localhost:8000` on the device. This is now fixed. **Re-download and rebuild your APK to get this fix.**
+### Fix 1 — Document Upload "Network request failed" (Android)
+
+**Root cause:** `typeof window !== 'undefined'` is always `true` in React Native (window is polyfilled), so the app was incorrectly treating Android as a web browser and trying to `fetch()` a local `file://` URI instead of attaching it as a blob to FormData.
+
+**Fix:** Changed the platform check to `Platform.OS === 'web'` in `api.ts → uploadDocument`. On Android, the file URI is now appended directly as a `{ uri, name, type }` native blob — the correct React Native approach.
+
+---
+
+### Fix 2 — Profile Screen Shows Only "Personal Details" (Android)
+
+**Root cause:** The production VPS API returns OCR data inside `extractionData` (nested sections/fields format) but does not always merge it back into the flat `ocr` field that the profile screen reads. The local Replit dev server does this merge server-side; the VPS did not.
+
+**Fix:** Added a `deriveOcrFromExtractionData()` function (client-side mirror of the server logic) in `api.ts`. It is now called in **three** places in `AuthContext.tsx`:
+1. **On app boot** — when restoring session from AsyncStorage
+2. **On OTP login** — immediately after `verifyOtp` returns farmer data
+3. **On `refreshFarmer`** — when the app polls the latest farmer record from the API
+
+This ensures the profile screen always has populated OCR sections regardless of which API version is running on the VPS.
+
+---
+
+### Fix 3 — On-Screen Debug Log Panel
+
+A collapsible debug log panel (`🔧 Debug Log`) now appears on the Document Upload screen after the first upload attempt. It shows:
+- `Platform.OS` and the API base URL being used
+- The file name, MIME type, and first 40 chars of the URI for each upload
+- Success (request ID) or full error message
+
+This lets you diagnose any future upload issues directly from the device without needing a computer or USB cable.
+
+---
+
+## API Routing (Mobile App)
+
+All requests from the Android APK go **exclusively** to:
+
+```
+https://krushisuvidhaai.airavatatechnologies.com/api
+```
+
+This is hardcoded as `PRODUCTION_API` in `api.ts` and is selected whenever `Platform.OS !== 'web'`. The web preview on port 8008 continues to use the local Replit API at `${hostname}:8000/api`.
 
 ---
 

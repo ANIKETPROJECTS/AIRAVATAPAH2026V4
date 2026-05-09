@@ -24,6 +24,45 @@ function getApiBase(): string {
 
 export const API_BASE = getApiBase();
 
+const DOC_ID_TO_OCR_SECTION: Record<string, string> = {
+  aadhar: 'aadhar',
+  bank_passbook: 'passbook',
+  form7: 'form7',
+  form12: 'form12',
+  form8a: 'form8a',
+};
+
+function snakeToCamel(s: string): string {
+  return s.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase());
+}
+
+type ExtractionField = { key: string; label: string; value: string };
+type ExtractionSection = { title?: string; fields?: ExtractionField[] };
+type ExtractionDataEntry = { sections?: ExtractionSection[] };
+
+export function deriveOcrFromExtractionData(farmer: Record<string, unknown>): void {
+  const ocr = (farmer['ocr'] as Record<string, unknown>) ?? {};
+  const extractionData = (farmer['extractionData'] as Record<string, ExtractionDataEntry>) ?? {};
+
+  for (const [docId, data] of Object.entries(extractionData)) {
+    const section = DOC_ID_TO_OCR_SECTION[docId];
+    if (!section) continue;
+    const existing = ocr[section];
+    if (existing && typeof existing === 'object' && Object.keys(existing as object).length > 0) continue;
+    const fields: Record<string, string> = {};
+    for (const sec of (data.sections ?? [])) {
+      for (const f of (sec.fields ?? [])) {
+        if (f.value && f.value.trim() && f.value !== '—') {
+          fields[snakeToCamel(f.key)] = f.value;
+        }
+      }
+    }
+    if (Object.keys(fields).length > 0) ocr[section] = fields;
+  }
+
+  farmer['ocr'] = ocr;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
@@ -117,7 +156,7 @@ export const api = {
   ): Promise<ExtractSubmitResult> => {
     const formData = new FormData();
 
-    if (typeof window !== 'undefined') {
+    if (Platform.OS === 'web') {
       const res = await fetch(fileUri);
       const blob = await res.blob();
       formData.append('file', blob, fileName);
@@ -138,8 +177,12 @@ export const api = {
       body: formData,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error((err as Record<string, string>).error ?? 'Upload failed');
+      let errMsg = 'Upload failed';
+      try {
+        const errBody = await res.json();
+        errMsg = errBody.error ?? errMsg;
+      } catch {}
+      throw new Error(`[HTTP ${res.status}] ${errMsg} — API: ${API_BASE}`);
     }
     return res.json() as Promise<ExtractSubmitResult>;
   },
