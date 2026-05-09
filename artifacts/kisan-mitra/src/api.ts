@@ -15,13 +15,11 @@ function getApiBase(): string {
     return 'http://localhost:8000/api';
   }
 
-  const { hostname } = window.location;
+  const { protocol, hostname } = window.location;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:8000/api';
   }
-  // In hosted environments (e.g. Replit), proxy /api through the Metro dev server
-  // to avoid cross-port CORS issues. metro.config.js forwards /api → localhost:8000.
-  return '/api';
+  return `${protocol}//${hostname}:8000/api`;
 }
 
 export const API_BASE = getApiBase();
