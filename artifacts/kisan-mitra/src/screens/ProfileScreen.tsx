@@ -4,6 +4,8 @@ import {
   ScrollView, Alert, Platform, Image, Modal, ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, FONT_SIZE, RADIUS, SHADOW, T } from '../constants';
@@ -33,12 +35,19 @@ const DOC_ICONS: Record<string, string> = {
   form8a: '📋',
 };
 
-function InfoRow({ label, value }: { label: string; value?: string }) {
-  const v = value && value !== '—' ? value : '—';
+function val(v: string | number | undefined | null): string {
+  if (v === undefined || v === null) return '—';
+  const s = String(v).trim();
+  if (!s || s === '—' || s === '-') return '—';
+  return s;
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | number | null }) {
+  const v = val(value);
   return (
     <View style={rowStyles.row}>
       <Text style={rowStyles.label}>{label}</Text>
-      <Text style={rowStyles.value} numberOfLines={2}>{v}</Text>
+      <Text style={[rowStyles.value, v === '—' && { color: COLORS.textMuted }]} numberOfLines={2}>{v}</Text>
     </View>
   );
 }
@@ -46,7 +55,7 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
 const rowStyles = StyleSheet.create({
   row: {
     flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
   },
   label: { fontSize: FONT_SIZE.sm, color: COLORS.textMuted, flex: 1, fontWeight: '500' },
   value: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.text, flex: 1.5, textAlign: 'right' },
@@ -86,7 +95,6 @@ const cardStyles = StyleSheet.create({
 function DocImageModal({ doc, onClose }: { doc: DocImage; onClose: () => void }) {
   const label = DOC_LABELS[doc.docType] ?? doc.docType;
   const imgSrc = `data:${doc.mimeType};base64,${doc.base64}`;
-
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.primaryDark }}>
@@ -96,17 +104,8 @@ function DocImageModal({ doc, onClose }: { doc: DocImage; onClose: () => void })
             <Text style={modalStyles.closeText}>✕ Close</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView
-          style={{ flex: 1, backgroundColor: '#111' }}
-          contentContainerStyle={{ padding: 12 }}
-          maximumZoomScale={3}
-          minimumZoomScale={1}
-        >
-          <Image
-            source={{ uri: imgSrc }}
-            style={modalStyles.docImage}
-            resizeMode="contain"
-          />
+        <ScrollView style={{ flex: 1, backgroundColor: '#111' }} contentContainerStyle={{ padding: 12 }}>
+          <Image source={{ uri: imgSrc }} style={modalStyles.docImage} resizeMode="contain" />
           <Text style={modalStyles.uploadedAt}>
             Uploaded: {new Date(doc.uploadedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
           </Text>
@@ -119,15 +118,13 @@ function DocImageModal({ doc, onClose }: { doc: DocImage; onClose: () => void })
 const modalStyles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: COLORS.primaryDark,
+    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: COLORS.primaryDark,
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   headerTitle: { fontSize: FONT_SIZE.base, fontWeight: '800', color: COLORS.gold, flex: 1 },
   closeBtn: {
     backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: RADIUS.full,
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   closeText: { fontSize: FONT_SIZE.sm, color: COLORS.white, fontWeight: '700' },
   docImage: { width: '100%', height: undefined, aspectRatio: 0.707, borderRadius: RADIUS.md },
@@ -135,7 +132,7 @@ const modalStyles = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
-  const { state, logout } = useAuth();
+  const { state, logout, refreshFarmer } = useAuth();
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
   const farmer = state.farmer;
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -143,17 +140,24 @@ export default function ProfileScreen() {
   const [docImages, setDocImages] = useState<DocImage[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocImage | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const canViewDocs = farmer?.status === 'Active' || farmer?.status === 'Verified';
 
-  useEffect(() => {
-    if (!farmer?.farmerId || !canViewDocs) return;
-    setLoadingDocs(true);
-    api.getDocumentImages(farmer.farmerId)
-      .then(data => { setDocImages(data.documents ?? []); })
-      .catch(() => {})
-      .finally(() => setLoadingDocs(false));
+  const loadData = useCallback(() => {
+    refreshFarmer();
+    if (farmer?.farmerId && canViewDocs) {
+      setLoadingDocs(true);
+      api.getDocumentImages(farmer.farmerId)
+        .then(data => setDocImages(data.documents ?? []))
+        .catch(() => {})
+        .finally(() => setLoadingDocs(false));
+    }
   }, [farmer?.farmerId, canViewDocs]);
+
+  useEffect(() => { loadData(); }, []);
+
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const initials = (farmer?.name && farmer.name !== '—')
     ? farmer.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -161,15 +165,23 @@ export default function ProfileScreen() {
 
   async function handleLogout() {
     if (Platform.OS === 'web') {
-      const msg = t('logoutConfirm') || 'Are you sure you want to logout?';
-      if (window.confirm(msg)) await logout();
+      if (window.confirm(t('logoutConfirm') || 'Are you sure you want to logout?')) await logout();
       return;
     }
     Alert.alert(t('logout'), t('logoutConfirm'), [
       { text: t('cancel'), style: 'cancel' },
-      { text: t('logout'), style: 'destructive', onPress: () => { logout(); } },
+      { text: t('logout'), style: 'destructive', onPress: () => logout() },
     ]);
   }
+
+  const docsUploaded = farmer?.docs ?? [];
+  const hasAadhaar = docsUploaded.some(d => d.section === 'aadhar');
+  const hasPassbook = docsUploaded.some(d => d.section === 'passbook');
+  const hasForm7 = docsUploaded.some(d => d.section === 'form7');
+  const hasForm12 = docsUploaded.some(d => d.section === 'form12');
+  const hasForm8a = docsUploaded.some(d => d.section === 'form8a');
+
+  const anyDocUploaded = docsUploaded.length > 0;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -192,6 +204,8 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* Hero Card */}
         <View style={styles.profileHero}>
           <View style={styles.avatarRing}>
             <View style={styles.avatarLarge}>
@@ -212,53 +226,74 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* Personal Details (from Aadhaar) */}
         <SectionCard title={t('personalInfo')} icon="👤" color={COLORS.primary}>
           <InfoRow label={t('name')} value={farmer?.name} />
           <InfoRow label={t('aadhaar')} value={farmer?.aadhaar} />
           <InfoRow label={t('dob')} value={(farmer as any)?.dob} />
           <InfoRow label={t('gender')} value={(farmer as any)?.gender} />
           <InfoRow label={t('mobile')} value={state.mobile ? `+91 ${state.mobile}` : undefined} />
+          {(farmer as any)?.fatherName && (
+            <InfoRow label="Father's Name" value={(farmer as any).fatherName} />
+          )}
+          {(farmer as any)?.address && (
+            <InfoRow label="Address" value={(farmer as any).address} />
+          )}
         </SectionCard>
 
-        <SectionCard title={t('landInfo')} icon="🌾" color={COLORS.gold}>
-          <InfoRow label={t('village')} value={farmer?.village} />
-          <InfoRow label={t('district')} value={farmer?.district} />
-          <InfoRow label={t('taluka')} value={farmer?.taluka} />
-          <InfoRow label={t('surveyNo')} value={farmer?.surveyNumber} />
-          <InfoRow label={t('landArea')} value={farmer?.land ? `${farmer.land} ha` : undefined} />
-          <InfoRow label={t('crop')} value={farmer?.crop} />
-        </SectionCard>
-
-        <SectionCard title={t('bankInfo')} icon="🏦" color={COLORS.info}>
-          <InfoRow label={t('bank')} value={farmer?.bankName} />
-          <InfoRow label={t('branch')} value={(farmer as any)?.branchName} />
-          <InfoRow label={t('ifsc')} value={(farmer as any)?.ifsc} />
-          <InfoRow label={t('accountNo')} value={farmer?.bankAccount} />
-        </SectionCard>
-
-        {farmer?.docs && farmer.docs.length > 0 && (
-          <SectionCard title="Submitted Documents" icon="📁" color="#7C3AED">
-            {farmer.docs.map((doc, i) => (
-              <View key={i} style={styles.docRow}>
-                <View style={styles.docIconBox}>
-                  <Text style={styles.docIcon}>📄</Text>
-                </View>
-                <View style={styles.docInfo}>
-                  <Text style={styles.docName}>{doc.name}</Text>
-                  <Text style={styles.docDate}>
-                    {doc.extractedAt ? new Date(doc.extractedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
-                  </Text>
-                </View>
-                <View style={styles.docBadge}>
-                  <Text style={styles.docBadgeText}>✓</Text>
-                </View>
-              </View>
-            ))}
+        {/* Land Details (from Form 7 / Form 12 / Form 8A) */}
+        {(anyDocUploaded || farmer?.village || farmer?.district) && (
+          <SectionCard title={t('landInfo')} icon="🌾" color={COLORS.gold}>
+            <InfoRow label={t('village')} value={farmer?.village} />
+            <InfoRow label={t('district')} value={farmer?.district} />
+            <InfoRow label={t('taluka')} value={farmer?.taluka} />
+            <InfoRow label={t('surveyNo')} value={farmer?.surveyNumber} />
+            <InfoRow label={t('landArea')} value={farmer?.land ? `${farmer.land} हे. / ha` : undefined} />
+            <InfoRow label={t('crop')} value={farmer?.crop} />
           </SectionCard>
         )}
 
+        {/* Bank Details (from Passbook) */}
+        {(anyDocUploaded || farmer?.bankAccount || farmer?.bankName) && (
+          <SectionCard title={t('bankInfo')} icon="🏦" color={COLORS.info}>
+            <InfoRow label={t('bank')} value={farmer?.bankName} />
+            <InfoRow label={t('branch')} value={(farmer as any)?.branchName} />
+            <InfoRow label={t('ifsc')} value={(farmer as any)?.ifsc} />
+            <InfoRow label={t('accountNo')} value={farmer?.bankAccount} />
+          </SectionCard>
+        )}
+
+        {/* Submitted Documents section */}
+        {docsUploaded.length > 0 && (
+          <SectionCard title="Submitted Documents" icon="📁" color="#7C3AED">
+            {docsUploaded.map((doc, i) => {
+              const docIcon = DOC_ICONS[(doc as any).section] ?? '📄';
+              const docLabel = DOC_LABELS[(doc as any).section] ?? doc.name;
+              return (
+                <View key={i} style={styles.docRow}>
+                  <View style={styles.docIconBox}>
+                    <Text style={styles.docIcon}>{docIcon}</Text>
+                  </View>
+                  <View style={styles.docInfo}>
+                    <Text style={styles.docName}>{docLabel || doc.name}</Text>
+                    <Text style={styles.docDate}>
+                      {doc.extractedAt
+                        ? new Date(doc.extractedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : 'Processing…'}
+                    </Text>
+                  </View>
+                  <View style={[styles.docBadge, { backgroundColor: COLORS.primaryBg }]}>
+                    <Text style={styles.docBadgeText}>✓</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </SectionCard>
+        )}
+
+        {/* Original Document Images */}
         {canViewDocs && (
-          <SectionCard title="My Original Documents" icon="🖼️" color={COLORS.gold}>
+          <SectionCard title="My Documents" icon="🖼️" color={COLORS.gold}>
             {loadingDocs ? (
               <View style={styles.docsLoading}>
                 <ActivityIndicator size="small" color={COLORS.primary} />
@@ -280,11 +315,7 @@ export default function ProfileScreen() {
                     onPress={() => setSelectedDoc(doc)}
                     activeOpacity={0.85}
                   >
-                    <Image
-                      source={{ uri: imgSrc }}
-                      style={styles.docThumbnail}
-                      resizeMode="cover"
-                    />
+                    <Image source={{ uri: imgSrc }} style={styles.docThumbnail} resizeMode="cover" />
                     <View style={styles.docImageInfo}>
                       <Text style={styles.docImageIcon}>{icon}</Text>
                       <View style={{ flex: 1 }}>
@@ -323,7 +354,6 @@ export default function ProfileScreen() {
           <Text style={styles.footerTitle}>कृषी सुविधा</Text>
           <Text style={styles.footerText}>Govt. of Maharashtra  •  Agriculture & Farmers Welfare Dept.</Text>
         </View>
-
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
@@ -364,14 +394,12 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
   idBadge: {
     backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: RADIUS.full,
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
   },
   idBadgeText: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.white },
   kycBadge: {
     backgroundColor: COLORS.primaryBg, borderRadius: RADIUS.full,
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderWidth: 1, borderColor: COLORS.primary,
+    paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: COLORS.primary,
   },
   kycBadgeText: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.primary },
   docRow: {
@@ -388,7 +416,7 @@ const styles = StyleSheet.create({
   docDate: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted },
   docBadge: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
     borderWidth: 1.5, borderColor: COLORS.primary,
   },
   docBadgeText: { fontSize: FONT_SIZE.sm, color: COLORS.primary, fontWeight: '800' },
@@ -398,12 +426,9 @@ const styles = StyleSheet.create({
   docsEmptyText: { color: COLORS.textMuted, fontSize: FONT_SIZE.sm, textAlign: 'center' },
   docImageCard: {
     borderRadius: RADIUS.md, overflow: 'hidden', borderWidth: 1,
-    borderColor: COLORS.borderLight, marginBottom: 12, backgroundColor: COLORS.white,
-    ...SHADOW.sm,
+    borderColor: COLORS.borderLight, marginBottom: 12, backgroundColor: COLORS.white, ...SHADOW.sm,
   },
-  docThumbnail: {
-    width: '100%', height: 160, backgroundColor: '#f5f5f5',
-  },
+  docThumbnail: { width: '100%', height: 160, backgroundColor: '#f5f5f5' },
   docImageInfo: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 12, paddingVertical: 10,
@@ -413,8 +438,7 @@ const styles = StyleSheet.create({
   docImageLabel: { fontSize: FONT_SIZE.sm, fontWeight: '700', color: COLORS.text },
   docImageDate: { fontSize: FONT_SIZE.xs, color: COLORS.textMuted, marginTop: 2 },
   viewBtn: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.full,
-    paddingHorizontal: 14, paddingVertical: 6,
+    backgroundColor: COLORS.primary, borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 6,
   },
   viewBtnText: { color: COLORS.white, fontSize: FONT_SIZE.xs, fontWeight: '700' },
   grievanceBtn: {

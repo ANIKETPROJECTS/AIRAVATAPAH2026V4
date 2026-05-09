@@ -20,7 +20,7 @@ const QUICK_ACTIONS = [
 ];
 
 export default function HomeScreen() {
-  const { state } = useAuth();
+  const { state, refreshFarmer } = useAuth();
   const t = (k: string) => (T[state.lang] ?? T['en'])[k] ?? k;
   const farmer = state.farmer;
   const [recentNotifs, setRecentNotifs] = useState<Notification[]>([]);
@@ -37,11 +37,13 @@ export default function HomeScreen() {
 
   useEffect(() => {
     fetchRecentNotifs();
+    refreshFarmer();
   }, [fetchRecentNotifs]);
 
   useFocusEffect(
     useCallback(() => {
       fetchRecentNotifs();
+      refreshFarmer();
     }, [fetchRecentNotifs]),
   );
 
@@ -109,6 +111,12 @@ export default function HomeScreen() {
             <FarmStat icon="🌾" label={t('primaryCrop')} value={(farmer?.crop && farmer.crop !== '—') ? farmer.crop : t('na')} color={COLORS.gold} />
             <FarmStat icon="🏘️" label={t('location')} value={(farmer?.village && farmer.village !== '—') ? farmer.village : t('na')} color={COLORS.info} />
             <FarmStat icon="🗺️" label={t('district')} value={(farmer?.district && farmer.district !== '—') ? farmer.district : t('na')} color="#7C3AED" />
+            {(farmer?.taluka && farmer.taluka !== '—') ? (
+              <FarmStat icon="🏛️" label={t('taluka')} value={farmer.taluka} color={COLORS.primaryMid} />
+            ) : null}
+            {(farmer?.surveyNumber && farmer.surveyNumber !== '—') ? (
+              <FarmStat icon="📋" label={t('surveyNo')} value={farmer.surveyNumber} color={COLORS.gold} />
+            ) : null}
           </View>
         </View>
 

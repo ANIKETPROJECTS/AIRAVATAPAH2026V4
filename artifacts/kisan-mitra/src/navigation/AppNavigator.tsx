@@ -171,8 +171,7 @@ export default function AppNavigator() {
   const isVerified = farmerStatus === 'Active' || farmerStatus === 'Verified';
   const hasDocs = (state.farmer?.docs ?? []).length > 0;
 
-  const isReturningVerifiedLogin = state.justLoggedIn && isVerified && !showCongrats;
-  const initialTab: 'Home' | 'Profile' = isReturningVerifiedLogin ? 'Profile' : 'Home';
+  const initialTab: 'Home' | 'Profile' = 'Home';
 
   return (
     <NavigationContainer>
