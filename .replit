@@ -76,7 +76,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm --filter kisan-mitra run web"
+args = "cd artifacts/kisan-mitra && ./node_modules/.bin/expo start --web --port 8008"
 waitForPort = 8008
 
 [agent]
@@ -97,12 +97,12 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 8008
-externalPort = 8008
+localPort = 8000
+externalPort = 8000
 
 [[ports]]
-localPort = 8080
-externalPort = 8080
+localPort = 8008
+externalPort = 8008
 
 [[ports]]
 localPort = 8081
@@ -119,10 +119,6 @@ externalPort = 3001
 [[ports]]
 localPort = 21926
 externalPort = 3000
-
-[[ports]]
-localPort = 8000
-externalPort = 8000
 
 [userenv]
 
