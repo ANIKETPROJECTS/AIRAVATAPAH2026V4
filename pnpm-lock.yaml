@@ -405,6 +405,9 @@ importers:
       expo-status-bar:
         specifier: ~2.2.3
         version: 2.2.3(react-native@0.79.6(@babel/core@7.29.0)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      http-proxy-middleware:
+        specifier: ^3.0.5
+        version: 3.0.5
       react:
         specifier: 19.0.0
         version: 19.0.0
