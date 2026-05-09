@@ -19,6 +19,7 @@ export default function PendingScreen() {
   const farmer = state.farmer;
 
   useEffect(() => {
+    refreshFarmer().catch(() => {});
     const interval = setInterval(async () => {
       try { await refreshFarmer(); } catch {}
     }, 30000);

@@ -92,6 +92,22 @@ router.post("/auth/verify-otp", async (req, res): Promise<void> => {
     const farmerRows = await db.collection("farmers").aggregate([
       { $match: { $or: [{ mobile }, { aadhaarMobile: mobile }, { "farmerProfile.mobile": mobile }] } },
       {
+        $addFields: {
+          _statusPriority: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$status", "Active"]    }, then: 1 },
+                { case: { $eq: ["$status", "Verified"]  }, then: 2 },
+                { case: { $eq: ["$status", "Pending"]   }, then: 3 },
+                { case: { $eq: ["$status", "Draft"]     }, then: 4 },
+              ],
+              default: 5,
+            },
+          },
+        },
+      },
+      { $sort: { _statusPriority: 1 } },
+      {
         $project: {
           _id: 0,
           farmerId: 1, name: 1, mobile: 1, aadhaarMobile: 1, status: 1, district: 1, docs: 1, source: 1,
