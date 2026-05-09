@@ -28,6 +28,10 @@ args = "API Server"
 task = "workflow.run"
 args = "Port Redirect"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Kisan Mitra"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -62,6 +66,18 @@ args = "node scripts/redirect-8080.mjs"
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "Kisan Mitra"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter kisan-mitra run web"
+waitForPort = 8008
 
 [agent]
 stack = "BEST_EFFORT_FALLBACK"
@@ -103,6 +119,10 @@ externalPort = 3001
 [[ports]]
 localPort = 21926
 externalPort = 3000
+
+[[ports]]
+localPort = 8008
+externalPort = 8008
 
 [userenv]
 
